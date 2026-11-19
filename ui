@@ -1,0 +1,1595 @@
+if _G.is_frostium_loaded then return end
+_G.is_frostium_loaded = true
+
+pcall(makefolder, "FrostiumAndroid")
+pcall(makefolder, "FrostiumAndroid/scripts")
+
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local HttpService = game:GetService("HttpService")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local StarterGui = game:GetService("StarterGui")
+local Stats = game:GetService("Stats")
+local MarketplaceService = game:GetService("MarketplaceService")
+
+local LocalPlayer = Players.LocalPlayer
+
+local loadIntoEditor
+local switchTab
+
+local function Notify(title, text, duration)
+    pcall(function()
+        StarterGui:SetCore("SendNotification", {Title = title, Text = text, Duration = duration or 3})
+    end)
+end
+
+local function create(class, props, parent)
+    local obj = Instance.new(class)
+    for k, v in pairs(props or {}) do
+        obj[k] = v
+    end
+    if parent then obj.Parent = parent end
+    return obj
+end
+
+local function corner(parent, px)
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, px)
+    c.Parent = parent
+    return c
+end
+
+local function stroke(parent, color, thickness, transparency)
+    local s = Instance.new("UIStroke")
+    s.Color = color or Color3.fromRGB(140, 190, 255)
+    s.Thickness = thickness or 1
+    s.Transparency = transparency or 0.4
+    s.Parent = parent
+    return s
+end
+
+local function gradient(parent, rotation)
+    local g = Instance.new("UIGradient")
+    g.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(170, 215, 255)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(110, 175, 255)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(70, 135, 230))
+    })
+    g.Rotation = rotation or 45
+    g.Parent = parent
+    return g
+end
+
+local FROST_HIGHLIGHT = Color3.fromRGB(120, 190, 255)
+
+local function tween(obj, props, time)
+    local t = TweenService:Create(obj, TweenInfo.new(time or 0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), props)
+    t:Play()
+    return t
+end
+
+local function scaleForDevice()
+    local cam = workspace.CurrentCamera
+    local size = cam and cam.ViewportSize or Vector2.new(1280, 720)
+    if size.X < 600 then return 0.85 end
+    if size.X < 900 then return 0.95 end
+    if size.X > 1600 then return 1.05 end
+    return 1
+end
+
+local root = create("ScreenGui", {
+    Name = "FrostiumUI",
+    ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+    ResetOnSpawn = false,
+    IgnoreGuiInset = true
+}, gethui())
+
+local uiScale = create("UIScale", {Scale = scaleForDevice()}, root)
+
+local toggleBtn
+local mainFrame
+
+toggleBtn = create("ImageButton", {
+    Name = "FrostiumToggle",
+    BackgroundColor3 = Color3.fromRGB(18, 26, 40),
+    Image = "rbxassetid://96682868223824",
+    Size = UDim2.new(0, 42, 0, 42),
+    Position = UDim2.new(0.5, 0, 0, 12),
+    AnchorPoint = Vector2.new(0.5, 0),
+    Visible = true,
+    ScaleType = Enum.ScaleType.Fit,
+    ClipsDescendants = true,
+    ZIndex = 50
+}, root)
+corner(toggleBtn, 21)
+stroke(toggleBtn, Color3.fromRGB(140, 190, 255), 1.5, 0.25)
+gradient(toggleBtn)
+create("UIAspectRatioConstraint", {AspectRatio = 1}, toggleBtn)
+
+mainFrame = create("Frame", {
+    Name = "MainFrame",
+    Active = true,
+    BackgroundColor3 = Color3.fromRGB(14, 20, 30),
+    Size = UDim2.new(0.62, 0, 0.78, 0),
+    Position = UDim2.new(0.19, 0, 0.11, 0),
+    Visible = true,
+    ClipsDescendants = true,
+    ZIndex = 1
+}, root)
+corner(mainFrame, 10)
+stroke(mainFrame, Color3.fromRGB(130, 180, 245), 1.5, 0.35)
+gradient(mainFrame)
+
+local sidebar = create("Frame", {
+    Name = "Sidebar",
+    BackgroundColor3 = Color3.fromRGB(18, 26, 40),
+    BackgroundTransparency = 0.1,
+    Size = UDim2.new(0.13, 0, 1, 0),
+    ClipsDescendants = true
+}, mainFrame)
+corner(sidebar, 10)
+gradient(sidebar)
+create("Frame", {
+    Name = "Divider",
+    BackgroundColor3 = Color3.fromRGB(90, 150, 225),
+    Size = UDim2.new(0, 2, 0.94, 0),
+    Position = UDim2.new(1, -2, 0.03, 0),
+    BorderSizePixel = 0
+}, sidebar)
+
+local logo = create("ImageLabel", {
+    Name = "Logo",
+    BackgroundTransparency = 1,
+    Image = "rbxassetid://96682868223824",
+    Size = UDim2.new(0, 44, 0, 44),
+    Position = UDim2.new(0.5, -22, 0, 12),
+    ScaleType = Enum.ScaleType.Fit
+}, sidebar)
+
+local btnFolder = create("Folder", {Name = "Buttons"}, sidebar)
+
+local function makeTabButton(name, icon, yPos)
+    local btn = create("ImageButton", {
+        Name = name,
+        BackgroundTransparency = 1,
+        Image = icon,
+        Size = UDim2.new(0, 28, 0, 28),
+        Position = UDim2.new(0.5, -14, yPos, 0),
+        ScaleType = Enum.ScaleType.Fit,
+        ImageColor3 = Color3.fromRGB(255, 255, 255)
+    }, btnFolder)
+    btn.MouseEnter:Connect(function()
+        tween(btn, {Size = UDim2.new(0, 32, 0, 32), Position = UDim2.new(0.5, -16, yPos, -2)}, 0.12)
+    end)
+    btn.MouseLeave:Connect(function()
+        tween(btn, {Size = UDim2.new(0, 28, 0, 28), Position = UDim2.new(0.5, -14, yPos, 0)}, 0.12)
+    end)
+    return btn
+end
+
+local userBtn = makeTabButton("User", "rbxassetid://125161627986415", 0.17)
+local homeBtn = makeTabButton("Home", "rbxassetid://83857918016474", 0.26)
+local editorBtn = makeTabButton("Editor", "rbxassetid://137231383216181", 0.35)
+local scriptsBtn = makeTabButton("Scripts", "rbxassetid://82541807222771", 0.44)
+local settingsBtn = makeTabButton("Settings", "rbxassetid://72727338348045", 0.53)
+
+local minimizeBtn = create("ImageButton", {
+    Name = "Minimize",
+    BackgroundTransparency = 1,
+    Image = "rbxassetid://75810158557243",
+    Size = UDim2.new(0, 26, 0, 26),
+    Position = UDim2.new(0.5, -13, 0.85, 0),
+    ScaleType = Enum.ScaleType.Fit
+}, btnFolder)
+
+local tabsFolder = create("Folder", {Name = "Tabs"}, mainFrame)
+
+local function makeTabFrame(name)
+    return create("Frame", {
+        Name = name,
+        BackgroundTransparency = 1,
+        Size = UDim2.new(0.85, -10, 0.96, -10),
+        Position = UDim2.new(0.14, 5, 0.02, 5),
+        Visible = false,
+        ClipsDescendants = true
+    }, tabsFolder)
+end
+
+local userTab = makeTabFrame("User")
+local homeTab = makeTabFrame("Home")
+local editorTab = makeTabFrame("Editor")
+local scriptsTab = makeTabFrame("Scripts")
+local settingsTab = makeTabFrame("Settings")
+
+local function makeHeading(parent, text)
+    return create("TextLabel", {
+        Name = "Heading",
+        BackgroundTransparency = 1,
+        Text = text,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Font = Enum.Font.GothamBold,
+        TextSize = 20,
+        TextColor3 = Color3.fromRGB(225, 240, 255),
+        Size = UDim2.new(1, -20, 0, 30),
+        Position = UDim2.new(0, 10, 0, 5),
+        TextTruncate = Enum.TextTruncate.AtEnd
+    }, parent)
+end
+
+local function makeSection(parent, text)
+    return create("TextLabel", {
+        Name = "Section",
+        BackgroundTransparency = 1,
+        Text = text,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Font = Enum.Font.GothamBold,
+        TextSize = 14,
+        TextColor3 = Color3.fromRGB(160, 200, 250),
+        Size = UDim2.new(1, -20, 0, 24),
+        TextTruncate = Enum.TextTruncate.AtEnd
+    }, parent)
+end
+
+local function makeCard(parent, height)
+    local card = create("Frame", {
+        Name = "Card",
+        BackgroundColor3 = Color3.fromRGB(20, 30, 46),
+        BackgroundTransparency = 0.05,
+        Size = UDim2.new(1, 0, 0, height),
+        ClipsDescendants = true
+    }, parent)
+    corner(card, 10)
+    stroke(card, Color3.fromRGB(90, 150, 225), 1, 0.5)
+    gradient(card)
+    return card
+end
+
+local function makeActionButton(parent, name, text, icon, width)
+    local f = create("Frame", {
+        Name = name,
+        BackgroundColor3 = Color3.fromRGB(80, 145, 235),
+        Size = UDim2.new(0, width, 0, 28),
+        ClipsDescendants = true
+    }, parent)
+    corner(f, 14)
+    gradient(f)
+    local btn = create("TextButton", {
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1, -20, 1, 0),
+        Position = UDim2.new(0, 8, 0, 0),
+        Text = text,
+        Font = Enum.Font.GothamBold,
+        TextSize = 11,
+        TextColor3 = Color3.fromRGB(255, 255, 255),
+        TextXAlignment = Enum.TextXAlignment.Left
+    }, f)
+    if icon then
+        create("ImageLabel", {
+            BackgroundTransparency = 1,
+            Image = icon,
+            Size = UDim2.new(0, 14, 0, 14),
+            Position = UDim2.new(1, -20, 0.5, -7),
+            ScaleType = Enum.ScaleType.Fit
+        }, f)
+    end
+    btn.MouseEnter:Connect(function()
+        tween(f, {Size = UDim2.new(0, width, 0, 30)}, 0.1)
+    end)
+    btn.MouseLeave:Connect(function()
+        tween(f, {Size = UDim2.new(0, width, 0, 28)}, 0.1)
+    end)
+    return f, btn
+end
+
+switchTab = function(tabName)
+    for _, t in pairs(tabsFolder:GetChildren()) do
+        if t:IsA("Frame") then
+            t.Visible = (t.Name == tabName)
+        end
+    end
+    local buttons = {User = userBtn, Home = homeBtn, Editor = editorBtn, Scripts = scriptsBtn, Settings = settingsBtn}
+    for name, btn in pairs(buttons) do
+        if name == tabName then
+            tween(btn, {ImageColor3 = FROST_HIGHLIGHT}, 0.15)
+        else
+            tween(btn, {ImageColor3 = Color3.fromRGB(255, 255, 255)}, 0.15)
+        end
+    end
+end
+
+userBtn.MouseButton1Click:Connect(function() switchTab("User") end)
+homeBtn.MouseButton1Click:Connect(function() switchTab("Home") end)
+editorBtn.MouseButton1Click:Connect(function() switchTab("Editor") end)
+scriptsBtn.MouseButton1Click:Connect(function() switchTab("Scripts") end)
+settingsBtn.MouseButton1Click:Connect(function() switchTab("Settings") end)
+
+local lastMainPosition = mainFrame.Position
+
+local function hideUI()
+    lastMainPosition = mainFrame.Position
+    tween(mainFrame, {Size = UDim2.new(0, 0, 0, 0), BackgroundTransparency = 1}, 0.22)
+    task.wait(0.22)
+    mainFrame.Visible = false
+end
+
+local function showUI()
+    mainFrame.Visible = true
+    mainFrame.Size = UDim2.new(0, 0, 0, 0)
+    mainFrame.BackgroundTransparency = 1
+    mainFrame.Position = lastMainPosition
+    tween(mainFrame, {Size = UDim2.new(0.62, 0, 0.78, 0), BackgroundTransparency = 0}, 0.25)
+end
+
+minimizeBtn.MouseButton1Click:Connect(hideUI)
+
+local dragging = false
+local dragStart, dragStartPos, dragTarget
+local dragMoved = false
+
+local function startDrag(frame, input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragTarget = frame
+        dragStart = input.Position
+        dragStartPos = frame.Position
+        dragMoved = false
+    end
+end
+
+local function endDrag(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = false
+        dragTarget = nil
+    end
+end
+
+mainFrame.InputBegan:Connect(function(input) startDrag(mainFrame, input) end)
+mainFrame.InputEnded:Connect(endDrag)
+toggleBtn.InputBegan:Connect(function(input) startDrag(toggleBtn, input) end)
+toggleBtn.InputEnded:Connect(endDrag)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and dragTarget and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - dragStart
+        if delta.Magnitude > 4 then dragMoved = true end
+        dragTarget.Position = UDim2.new(
+            dragStartPos.X.Scale,
+            dragStartPos.X.Offset + delta.X,
+            dragStartPos.Y.Scale,
+            dragStartPos.Y.Offset + delta.Y
+        )
+    end
+end)
+
+toggleBtn.MouseButton1Click:Connect(function()
+    if dragMoved then return end
+    if mainFrame.Visible then hideUI() else showUI() end
+end)
+
+local function highlightLua(src)
+    local keywords = {
+        ["and"]=1,["break"]=1,["or"]=1,["else"]=1,["elseif"]=1,["if"]=1,["then"]=1,["until"]=1,["repeat"]=1,
+        ["while"]=1,["do"]=1,["for"]=1,["in"]=1,["end"]=1,["local"]=1,["return"]=1,["function"]=1,["export"]=1,
+        ["continue"]=1,["type"]=1
+    }
+    local builtins = {
+        ["game"]=1,["workspace"]=1,["script"]=1,["math"]=1,["string"]=1,["table"]=1,["task"]=1,["wait"]=1,
+        ["select"]=1,["next"]=1,["Enum"]=1,["error"]=1,["warn"]=1,["tick"]=1,["assert"]=1,["shared"]=1,
+        ["loadstring"]=1,["tonumber"]=1,["tostring"]=1,["typeof"]=1,["unpack"]=1,["print"]=1,["Instance"]=1,
+        ["CFrame"]=1,["Vector3"]=1,["Vector2"]=1,["Color3"]=1,["UDim"]=1,["UDim2"]=1,["Ray"]=1,
+        ["BrickColor"]=1,["OverlapParams"]=1,["RaycastParams"]=1,["Random"]=1,["Region3"]=1,["Rect"]=1,
+        ["TweenInfo"]=1,["collectgarbage"]=1,["not"]=1,["utf8"]=1,["pcall"]=1,["xpcall"]=1,["_G"]=1,
+        ["setmetatable"]=1,["getmetatable"]=1,["os"]=1,["pairs"]=1,["ipairs"]=1,["require"]=1
+    }
+    local function esc(s) return s:gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;") end
+    local out, i, n = {}, 1, #src
+    while i <= n do
+        local c = src:sub(i, i)
+        if c == "-" and src:sub(i, i + 1) == "--" then
+            local nl = src:find("\n", i, true)
+            local comment = nl and src:sub(i, nl - 1) or src:sub(i)
+            table.insert(out, '<font color="#6b7a99">' .. esc(comment) .. '</font>')
+            i = nl or (n + 1)
+        elseif c == '"' or c == "'" then
+            local j = i + 1
+            while j <= n do
+                if src:sub(j, j) == "\\" then j = j + 2
+                elseif src:sub(j, j) == c then j = j + 1; break
+                else j = j + 1 end
+            end
+            table.insert(out, '<font color="#7ee787">' .. esc(src:sub(i, j - 1)) .. '</font>')
+            i = j
+        elseif c:match("%d") then
+            local j = i
+            while j <= n and src:sub(j, j):match("[%d%.xXa-fA-F]") do j = j + 1 end
+            table.insert(out, '<font color="#ffa657">' .. esc(src:sub(i, j - 1)) .. '</font>')
+            i = j
+        elseif c:match("[%a_]") then
+            local j = i
+            while j <= n and src:sub(j, j):match("[%w_]") do j = j + 1 end
+            local word = src:sub(i, j - 1)
+            if keywords[word] then table.insert(out, '<font color="#ff7b72">' .. word .. '</font>')
+            elseif builtins[word] then table.insert(out, '<font color="#79c0ff">' .. word .. '</font>')
+            else table.insert(out, '<font color="#e6edf3">' .. word .. '</font>') end
+            i = j
+        else
+            table.insert(out, '<font color="#e6edf3">' .. esc(c) .. '</font>')
+            i = i + 1
+        end
+    end
+    return table.concat(out)
+end
+
+makeHeading(userTab, "User Information")
+local userScroll = create("ScrollingFrame", {
+    BackgroundTransparency = 1,
+    Size = UDim2.new(1, -20, 1, -50),
+    Position = UDim2.new(0, 10, 0, 40),
+    CanvasSize = UDim2.new(0, 0, 0, 0),
+    AutomaticCanvasSize = Enum.AutomaticSize.Y,
+    ScrollBarThickness = 4,
+    ScrollBarImageColor3 = FROST_HIGHLIGHT
+}, userTab)
+create("UIListLayout", {SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 10)}, userScroll)
+create("UIPadding", {PaddingRight = UDim.new(0, 6), PaddingBottom = UDim.new(0, 10)}, userScroll)
+
+local userCard = makeCard(userScroll, 80)
+local avatar = create("ImageLabel", {
+    BackgroundTransparency = 1,
+    Image = "",
+    Size = UDim2.new(0, 56, 0, 56),
+    Position = UDim2.new(0, 12, 0.5, -28),
+    ScaleType = Enum.ScaleType.Crop
+}, userCard)
+corner(avatar, 28)
+stroke(avatar, FROST_HIGHLIGHT, 1.5, 0.4)
+
+local welcome = create("TextLabel", {
+    BackgroundTransparency = 1,
+    Text = "Welcome, User!",
+    TextXAlignment = Enum.TextXAlignment.Left,
+    Font = Enum.Font.GothamBold,
+    TextSize = 16,
+    TextColor3 = Color3.fromRGB(235, 245, 255),
+    Size = UDim2.new(0.65, 0, 0, 20),
+    Position = UDim2.new(0, 80, 0, 16),
+    TextTruncate = Enum.TextTruncate.AtEnd
+}, userCard)
+
+create("TextLabel", {
+    BackgroundTransparency = 1,
+    Text = "Thanks for using Frostium",
+    TextXAlignment = Enum.TextXAlignment.Left,
+    Font = Enum.Font.Gotham,
+    TextSize = 12,
+    TextColor3 = Color3.fromRGB(160, 190, 225),
+    Size = UDim2.new(0.65, 0, 0, 16),
+    Position = UDim2.new(0, 80, 0, 38),
+    TextTruncate = Enum.TextTruncate.AtEnd
+}, userCard)
+
+local keyCard = makeCard(userScroll, 70)
+create("TextLabel", {
+    BackgroundTransparency = 1,
+    Text = "Key System",
+    TextXAlignment = Enum.TextXAlignment.Left,
+    Font = Enum.Font.GothamBold,
+    TextSize = 15,
+    TextColor3 = Color3.fromRGB(225, 240, 255),
+    Size = UDim2.new(0.9, 0, 0, 18),
+    Position = UDim2.new(0, 12, 0, 8)
+}, keyCard)
+
+local barBg = create("Frame", {
+    BackgroundColor3 = Color3.fromRGB(35, 50, 70),
+    Size = UDim2.new(0.55, 0, 0, 8),
+    Position = UDim2.new(0, 12, 0, 32),
+    BorderSizePixel = 0
+}, keyCard)
+corner(barBg, 4)
+local barFill = create("Frame", {
+    BackgroundColor3 = FROST_HIGHLIGHT,
+    Size = UDim2.new(1, 0, 1, 0),
+    BorderSizePixel = 0
+}, barBg)
+corner(barFill, 4)
+gradient(barFill)
+
+create("TextLabel", {
+    BackgroundTransparency = 1,
+    Text = "Duration: Infinite",
+    TextXAlignment = Enum.TextXAlignment.Left,
+    Font = Enum.Font.Gotham,
+    TextSize = 11,
+    TextColor3 = Color3.fromRGB(170, 210, 250),
+    Size = UDim2.new(0.4, 0, 0, 14),
+    Position = UDim2.new(0, 12, 0, 46)
+}, keyCard)
+
+local introCard = makeCard(userScroll, 0)
+introCard.AutomaticSize = Enum.AutomaticSize.Y
+create("TextLabel", {
+    BackgroundTransparency = 1,
+    Text = "Frostium Introduction",
+    TextXAlignment = Enum.TextXAlignment.Left,
+    Font = Enum.Font.GothamBold,
+    TextSize = 15,
+    TextColor3 = Color3.fromRGB(225, 240, 255),
+    Size = UDim2.new(0.9, 0, 0, 18),
+    Position = UDim2.new(0, 12, 0, 8)
+}, introCard)
+create("TextLabel", {
+    BackgroundTransparency = 1,
+    Text = "Frostium is a lightweight, executor built for performance, clarity, and a smooth mobile-first experience. It includes a code editor, cloud script search, saved scripts, and quick game tweaks.",
+    TextXAlignment = Enum.TextXAlignment.Left,
+    TextYAlignment = Enum.TextYAlignment.Top,
+    TextWrapped = true,
+    Font = Enum.Font.Gotham,
+    TextSize = 12,
+    TextColor3 = Color3.fromRGB(175, 205, 240),
+    Size = UDim2.new(1, -24, 0, 0),
+    AutomaticSize = Enum.AutomaticSize.Y,
+    Position = UDim2.new(0, 12, 0, 30)
+}, introCard)
+create("UIPadding", {PaddingBottom = UDim.new(0, 12)}, introCard)
+
+makeHeading(homeTab, "Saved Scripts")
+local homeList = create("ScrollingFrame", {
+    BackgroundTransparency = 1,
+    Size = UDim2.new(1, -20, 1, -50),
+    Position = UDim2.new(0, 10, 0, 40),
+    CanvasSize = UDim2.new(0, 0, 0, 0),
+    AutomaticCanvasSize = Enum.AutomaticSize.Y,
+    ScrollBarThickness = 4,
+    ScrollBarImageColor3 = FROST_HIGHLIGHT
+}, homeTab)
+create("UIListLayout", {SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8)}, homeList)
+create("UIPadding", {PaddingRight = UDim.new(0, 6), PaddingBottom = UDim.new(0, 10)}, homeList)
+
+local function makeScriptCard(parent, name, source, isBuiltIn, onDelete)
+    local card = makeCard(parent, 72)
+    card.Size = UDim2.new(1, -10, 0, 72)
+    
+    local titleRow = create("Frame", {
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1, -20, 0, 20),
+        Position = UDim2.new(0, 10, 0, 6),
+        ClipsDescendants = true
+    }, card)
+
+    create("TextLabel", {
+        BackgroundTransparency = 1,
+        Text = name,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Font = Enum.Font.GothamBold,
+        TextSize = 13,
+        TextColor3 = Color3.fromRGB(235, 245, 255),
+        Size = UDim2.new(isBuiltIn and 0.6 or 0.9, 0, 1, 0),
+        TextTruncate = Enum.TextTruncate.AtEnd
+    }, titleRow)
+
+    if isBuiltIn then
+        local tag = create("Frame", {
+            BackgroundColor3 = Color3.fromRGB(60, 130, 240),
+            Size = UDim2.new(0, 56, 0, 16),
+            Position = UDim2.new(0.62, 0, 0.5, -8)
+        }, titleRow)
+        corner(tag, 8)
+        create("TextLabel", {
+            BackgroundTransparency = 1,
+            Text = "Built-in",
+            Font = Enum.Font.GothamBold,
+            TextSize = 10,
+            TextColor3 = Color3.fromRGB(255, 255, 255),
+            Size = UDim2.new(1, 0, 1, 0)
+        }, tag)
+    end
+
+    local actionRow = create("Frame", {
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1, -20, 0, 26),
+        Position = UDim2.new(0, 10, 0, 32),
+        ClipsDescendants = true
+    }, card)
+    create("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8)}, actionRow)
+
+    local function smallBtn(text, width, icon, callback)
+        local f = create("Frame", {
+            BackgroundColor3 = Color3.fromRGB(80, 145, 235),
+            Size = UDim2.new(0, width, 0, 24),
+            ClipsDescendants = true
+        }, actionRow)
+        corner(f, 12)
+        gradient(f)
+        local b = create("TextButton", {
+            BackgroundTransparency = 1,
+            Size = UDim2.new(1, 0, 1, 0),
+            Text = text,
+            Font = Enum.Font.GothamBold,
+            TextSize = 11,
+            TextColor3 = Color3.fromRGB(255, 255, 255),
+            TextXAlignment = icon and Enum.TextXAlignment.Left or Enum.TextXAlignment.Center
+        }, f)
+        if icon then
+            create("UIPadding", {PaddingLeft = UDim.new(0, 6)}, b)
+            create("ImageLabel", {
+                BackgroundTransparency = 1,
+                Image = icon,
+                Size = UDim2.new(0, 12, 0, 12),
+                Position = UDim2.new(1, -16, 0.5, -6),
+                ScaleType = Enum.ScaleType.Fit
+            }, f)
+        end
+        b.MouseButton1Click:Connect(callback)
+    end
+
+    smallBtn("Execute", 70, "rbxassetid://82682091622365", function()
+        local ok, err = pcall(function() loadstring(source)() end)
+        Notify("Frostium", ok and "Executed successfully!" or ("Error: " .. tostring(err)), 2)
+    end)
+
+    smallBtn("Load in Editor", 100, "rbxassetid://137231383216181", function()
+        if loadIntoEditor then
+            loadIntoEditor(name, source)
+            switchTab("Editor")
+            Notify("Frostium", "Loaded into editor", 2)
+        end
+    end)
+
+    smallBtn("Copy", 54, "rbxassetid://140087399831489", function()
+        pcall(setclipboard, source)
+        Notify("Frostium", "Copied to clipboard", 2)
+    end)
+
+    smallBtn("Delete", 60, "rbxassetid://124950181079965", function()
+        if onDelete then onDelete() end
+        card:Destroy()
+    end)
+end
+
+local infiniteYieldSource = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))()'
+makeScriptCard(homeList, "Infinite Yield", infiniteYieldSource, true, nil)
+
+local savedContainer = create("Frame", {
+    BackgroundTransparency = 1,
+    Size = UDim2.new(1, 0, 0, 0),
+    AutomaticSize = Enum.AutomaticSize.Y
+}, homeList)
+create("UIListLayout", {SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8)}, savedContainer)
+
+local function addSavedScript(name, source, loading)
+    if not loading then pcall(writefile, "FrostiumAndroid/scripts/" .. name .. ".lua", source) end
+    makeScriptCard(savedContainer, name, source, false, function()
+        pcall(delfile, "FrostiumAndroid/scripts/" .. name .. ".lua")
+    end)
+end
+
+pcall(function()
+    for _, file in ipairs(listfiles("FrostiumAndroid/scripts")) do
+        local name = file:match("([^/\\]+)%.lua$") or file
+        local src = readfile(file)
+        if src then addSavedScript(name, src, true) end
+    end
+end)
+
+makeHeading(editorTab, "Editor IDE")
+local tabBar = create("ScrollingFrame", {
+    BackgroundTransparency = 1,
+    Size = UDim2.new(1, -20, 0, 36),
+    Position = UDim2.new(0, 10, 0, 40),
+    CanvasSize = UDim2.new(0, 0, 0, 0),
+    AutomaticCanvasSize = Enum.AutomaticSize.X,
+    ScrollingDirection = Enum.ScrollingDirection.X,
+    ScrollBarThickness = 3,
+    ScrollBarImageColor3 = FROST_HIGHLIGHT,
+    ClipsDescendants = true
+}, editorTab)
+create("UIListLayout", {SortOrder = Enum.SortOrder.LayoutOrder, FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 4)}, tabBar)
+
+local editorTabs = {}
+local activeEditorTab = 1
+local tabCounter = 0
+local lastTabClick = {}
+
+local codeScroll = create("ScrollingFrame", {
+    BackgroundColor3 = Color3.fromRGB(12, 18, 28),
+    BackgroundTransparency = 0.1,
+    Size = UDim2.new(1, -20, 1, -135),
+    Position = UDim2.new(0, 10, 0, 80),
+    CanvasSize = UDim2.new(0, 0, 0, 0),
+    AutomaticCanvasSize = Enum.AutomaticSize.Y,
+    ScrollBarThickness = 5,
+    ScrollBarImageColor3 = FROST_HIGHLIGHT,
+    ClipsDescendants = true
+}, editorTab)
+corner(codeScroll, 8)
+stroke(codeScroll, Color3.fromRGB(70, 120, 190), 1, 0.5)
+
+local lineNumbers = create("TextLabel", {
+    BackgroundTransparency = 1,
+    Size = UDim2.new(0, 40, 0, 0),
+    Position = UDim2.new(0, 4, 0, 6),
+    Text = "1",
+    TextXAlignment = Enum.TextXAlignment.Right,
+    TextYAlignment = Enum.TextYAlignment.Top,
+    Font = Enum.Font.Code,
+    TextSize = 16,
+    TextColor3 = Color3.fromRGB(120, 150, 190),
+    AutomaticSize = Enum.AutomaticSize.Y
+}, codeScroll)
+
+local highlightLabel = create("TextLabel", {
+    BackgroundTransparency = 1,
+    Size = UDim2.new(1, -60, 0, 0),
+    Position = UDim2.new(0, 52, 0, 6),
+    Text = "",
+    RichText = true,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    TextYAlignment = Enum.TextYAlignment.Top,
+    Font = Enum.Font.Code,
+    TextSize = 16,
+    TextColor3 = Color3.fromRGB(230, 240, 255),
+    TextWrapped = true,
+    AutomaticSize = Enum.AutomaticSize.Y,
+    ZIndex = 1
+}, codeScroll)
+
+local codeBox = create("TextBox", {
+    BackgroundTransparency = 1,
+    Size = UDim2.new(1, -60, 0, 0),
+    Position = UDim2.new(0, 52, 0, 6),
+    Text = "",
+    PlaceholderText = "-- Frostium on Top!",
+    PlaceholderColor3 = Color3.fromRGB(100, 130, 170),
+    TextXAlignment = Enum.TextXAlignment.Left,
+    TextYAlignment = Enum.TextYAlignment.Top,
+    Font = Enum.Font.Code,
+    TextSize = 16,
+    TextColor3 = Color3.fromRGB(230, 240, 255),
+    TextTransparency = 1,
+    MultiLine = true,
+    TextWrapped = true,
+    ClearTextOnFocus = false,
+    AutomaticSize = Enum.AutomaticSize.Y,
+    ZIndex = 2
+}, codeScroll)
+
+local function updateLinesAndHighlight()
+    local src = codeBox.Text
+    local count = 1
+    for _ in src:gmatch("\n") do count = count + 1 end
+    local nums = {}
+    for i = 1, count do nums[i] = tostring(i) end
+    lineNumbers.Text = table.concat(nums, "\n")
+    if #src > 0 and not codeBox:IsFocused() then
+        highlightLabel.Text = highlightLua(src)
+        highlightLabel.Visible = true
+    else
+        highlightLabel.Visible = false
+    end
+end
+
+local highlightDebounce = false
+codeBox:GetPropertyChangedSignal("Text"):Connect(function()
+    if highlightDebounce then return end
+    highlightDebounce = true
+    task.delay(0.08, function()
+        highlightDebounce = false
+        updateLinesAndHighlight()
+    end)
+end)
+
+codeBox.Focused:Connect(function()
+    highlightLabel.Visible = false
+    codeBox.TextTransparency = 0
+end)
+
+codeBox.FocusLost:Connect(function()
+    codeBox.TextTransparency = 1
+    if editorTabs[activeEditorTab] then
+        editorTabs[activeEditorTab].text = codeBox.Text
+    end
+    updateLinesAndHighlight()
+end)
+
+loadIntoEditor = function(name, source)
+    local existing = nil
+    for i, t in ipairs(editorTabs) do
+        if t.name == name then existing = i; break end
+    end
+    if existing then
+        activeEditorTab = existing
+        codeBox.Text = editorTabs[existing].text
+    else
+        tabCounter = tabCounter + 1
+        table.insert(editorTabs, {name = name, text = source})
+        activeEditorTab = #editorTabs
+        codeBox.Text = source
+    end
+    updateLinesAndHighlight()
+end
+
+local tabBarButtons = {}
+
+local function rebuildTabBar()
+    for _, btn in ipairs(tabBarButtons) do btn:Destroy() end
+    tabBarButtons = {}
+    for i, t in ipairs(editorTabs) do
+        local btn = create("TextButton", {
+            BackgroundColor3 = i == activeEditorTab and Color3.fromRGB(60, 120, 210) or Color3.fromRGB(30, 45, 65),
+            Size = UDim2.new(0, 120, 0, 24),
+            Text = "",
+            AutoButtonColor = false,
+            ClipsDescendants = true
+        }, tabBar)
+        corner(btn, 6)
+        stroke(btn, i == activeEditorTab and FROST_HIGHLIGHT or Color3.fromRGB(60, 90, 130), 1, 0.4)
+
+        local label = create("TextLabel", {
+            BackgroundTransparency = 1,
+            Text = t.name,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            Font = Enum.Font.GothamBold,
+            TextSize = 11,
+            TextColor3 = Color3.fromRGB(235, 245, 255),
+            Size = UDim2.new(1, -24, 1, 0),
+            Position = UDim2.new(0, 6, 0, 0),
+            TextTruncate = Enum.TextTruncate.AtEnd
+        }, btn)
+
+        if #editorTabs > 1 then
+            local close = create("ImageButton", {
+                BackgroundTransparency = 1,
+                Image = "rbxassetid://103154043386406",
+                Size = UDim2.new(0, 12, 0, 12),
+                Position = UDim2.new(1, -16, 0.5, -6),
+                ScaleType = Enum.ScaleType.Fit
+            }, btn)
+
+            close.MouseButton1Click:Connect(function()
+                table.remove(editorTabs, i)
+                activeEditorTab = math.clamp(activeEditorTab, 1, #editorTabs)
+                codeBox.Text = editorTabs[activeEditorTab].text
+                updateLinesAndHighlight()
+                rebuildTabBar()
+            end)
+        end
+
+        btn.MouseButton1Click:Connect(function()
+            local now = tick()
+            if lastTabClick[btn] and now - lastTabClick[btn] < 0.35 then
+                local renameBox = create("TextBox", {
+                    BackgroundColor3 = Color3.fromRGB(20, 30, 45),
+                    Size = UDim2.new(1, -4, 1, -2),
+                    Position = UDim2.new(0, 2, 0, 1),
+                    Text = t.name,
+                    Font = Enum.Font.GothamBold,
+                    TextSize = 11,
+                    TextColor3 = Color3.fromRGB(255, 255, 255),
+                    ClearTextOnFocus = true,
+                    ZIndex = 3
+                }, btn)
+                corner(renameBox, 4)
+                renameBox:CaptureFocus()
+                local finished = false
+                local function finish()
+                    if finished then return end
+                    finished = true
+                    local newName = renameBox.Text
+                    if #newName > 0 then
+                        t.name = newName
+                        label.Text = newName
+                    end
+                    renameBox:Destroy()
+                    rebuildTabBar()
+                end
+                renameBox.FocusLost:Connect(finish)
+            else
+                lastTabClick[btn] = now
+                if editorTabs[activeEditorTab] then
+                    editorTabs[activeEditorTab].text = codeBox.Text
+                end
+                activeEditorTab = i
+                codeBox.Text = t.text
+                updateLinesAndHighlight()
+                rebuildTabBar()
+            end
+        end)
+        table.insert(tabBarButtons, btn)
+    end
+    
+    local addBtn = create("TextButton", {
+        BackgroundColor3 = Color3.fromRGB(40, 60, 90),
+        Size = UDim2.new(0, 24, 0, 24),
+        Text = "",
+        AutoButtonColor = false,
+        ClipsDescendants = true
+    }, tabBar)
+    corner(addBtn, 6)
+    stroke(addBtn, Color3.fromRGB(70, 120, 190), 1, 0.4)
+    create("ImageLabel", {
+        BackgroundTransparency = 1,
+        Image = "rbxassetid://139478909806812",
+        Size = UDim2.new(0, 12, 0, 12),
+        Position = UDim2.new(0.5, -6, 0.5, -6),
+        ScaleType = Enum.ScaleType.Fit
+    }, addBtn)
+    addBtn.MouseButton1Click:Connect(function()
+        tabCounter = tabCounter + 1
+        table.insert(editorTabs, {name = "Script " .. tabCounter, text = ""})
+        activeEditorTab = #editorTabs
+        codeBox.Text = ""
+        updateLinesAndHighlight()
+        rebuildTabBar()
+    end)
+    table.insert(tabBarButtons, addBtn)
+end
+
+tabCounter = tabCounter + 1
+table.insert(editorTabs, {name = "Script " .. tabCounter, text = ""})
+activeEditorTab = 1
+rebuildTabBar()
+
+local editorActions = create("Frame", {
+    BackgroundTransparency = 1,
+    Size = UDim2.new(1, -20, 0, 28),
+    Position = UDim2.new(0, 10, 1, -38),
+    ClipsDescendants = true
+}, editorTab)
+create("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8)}, editorActions)
+
+local execBtn, execBtnInner = makeActionButton(editorActions, "Exec", "Execute", "rbxassetid://82682091622365", 80)
+local copyBtn, copyBtnInner = makeActionButton(editorActions, "Copy", "Copy", "rbxassetid://140087399831489", 60)
+local pasteBtn, pasteBtnInner = makeActionButton(editorActions, "Paste", "Paste", "rbxassetid://136180905417645", 60)
+local clearBtn, clearBtnInner = makeActionButton(editorActions, "Clear", "Clear", "rbxassetid://81891662012233", 60)
+local saveBtn, saveBtnInner = makeActionButton(editorActions, "Save", "Save", "rbxassetid://100311085528798", 60)
+
+execBtnInner.MouseButton1Click:Connect(function()
+    local ok, err = pcall(function() loadstring(codeBox.Text)() end)
+    Notify("Frostium", ok and "Executed successfully" or ("Error: " .. tostring(err)), 3)
+end)
+
+copyBtnInner.MouseButton1Click:Connect(function()
+    pcall(setclipboard, codeBox.Text)
+    Notify("Frostium", "Copied to clipboard", 2)
+end)
+
+pasteBtnInner.MouseButton1Click:Connect(function()
+    local ok, clip = pcall(getclipboard)
+    if ok and clip then
+        codeBox.Text = codeBox.Text .. clip
+        updateLinesAndHighlight()
+    end
+end)
+
+clearBtnInner.MouseButton1Click:Connect(function()
+    codeBox.Text = ""
+    updateLinesAndHighlight()
+end)
+
+local saveModal = create("Frame", {
+    Name = "SaveModal",
+    BackgroundColor3 = Color3.fromRGB(14, 20, 30),
+    Size = UDim2.new(0, 300, 0, 150),
+    Position = UDim2.new(0.5, -150, 0.5, -75),
+    Visible = false,
+    ZIndex = 100
+}, root)
+corner(saveModal, 10)
+stroke(saveModal, FROST_HIGHLIGHT, 1.5, 0.2)
+gradient(saveModal)
+
+create("TextLabel", {
+    BackgroundTransparency = 1,
+    Text = "Saved Script Name",
+    Font = Enum.Font.GothamBold,
+    TextSize = 16,
+    TextColor3 = Color3.fromRGB(225, 240, 255),
+    Size = UDim2.new(1, 0, 0, 30),
+    Position = UDim2.new(0, 0, 0, 10),
+    ZIndex = 101
+}, saveModal)
+
+local modalInput = create("TextBox", {
+    BackgroundColor3 = Color3.fromRGB(20, 30, 46),
+    Size = UDim2.new(1, -40, 0, 30),
+    Position = UDim2.new(0, 20, 0, 45),
+    PlaceholderText = "Input here... (Optional)",
+    PlaceholderColor3 = Color3.fromRGB(140, 170, 210),
+    Text = "",
+    TextColor3 = Color3.fromRGB(230, 240, 255),
+    Font = Enum.Font.Gotham,
+    TextSize = 14,
+    ClearTextOnFocus = false,
+    ZIndex = 101
+}, saveModal)
+corner(modalInput, 6)
+stroke(modalInput, Color3.fromRGB(70, 120, 190), 1, 0.6)
+create("UIPadding", {PaddingLeft = UDim.new(0, 10)}, modalInput)
+
+local modalSaveBtn = create("TextButton", {
+    BackgroundColor3 = Color3.fromRGB(80, 145, 235),
+    Size = UDim2.new(0, 120, 0, 30),
+    Position = UDim2.new(0.5, -125, 1, -45),
+    Text = "Save",
+    Font = Enum.Font.GothamBold,
+    TextSize = 12,
+    TextColor3 = Color3.fromRGB(255, 255, 255),
+    ZIndex = 101
+}, saveModal)
+corner(modalSaveBtn, 6)
+gradient(modalSaveBtn)
+
+local modalCancelBtn = create("TextButton", {
+    BackgroundColor3 = Color3.fromRGB(40, 60, 90),
+    Size = UDim2.new(0, 120, 0, 30),
+    Position = UDim2.new(0.5, 5, 1, -45),
+    Text = "Cancel",
+    Font = Enum.Font.GothamBold,
+    TextSize = 12,
+    TextColor3 = Color3.fromRGB(220, 235, 255),
+    ZIndex = 101
+}, saveModal)
+corner(modalCancelBtn, 6)
+
+modalCancelBtn.MouseButton1Click:Connect(function()
+    saveModal.Visible = false
+    modalInput.Text = ""
+end)
+
+modalSaveBtn.MouseButton1Click:Connect(function()
+    if #editorTabs == 0 then return end
+    local t = editorTabs[activeEditorTab]
+    local name = modalInput.Text
+    if #name == 0 then
+        name = t.name
+    end
+    local source = codeBox.Text
+    pcall(writefile, "FrostiumAndroid/scripts/" .. name .. ".lua", source)
+    addSavedScript(name, source, true)
+    Notify("Frostium", "Saved to scripts", 2)
+    saveModal.Visible = false
+    modalInput.Text = ""
+end)
+
+saveBtnInner.MouseButton1Click:Connect(function()
+    saveModal.Visible = true
+end)
+
+makeHeading(scriptsTab, "Cloud Scripts")
+local providerBtn = create("TextButton", {
+    BackgroundColor3 = Color3.fromRGB(30, 45, 65),
+    Size = UDim2.new(0, 120, 0, 28),
+    Position = UDim2.new(0, 10, 0, 42),
+    Text = "Scriptblox",
+    Font = Enum.Font.GothamBold,
+    TextSize = 12,
+    TextColor3 = Color3.fromRGB(220, 235, 255)
+}, scriptsTab)
+corner(providerBtn, 8)
+stroke(providerBtn, Color3.fromRGB(70, 120, 190), 1, 0.5)
+
+local providerArrow = create("ImageLabel", {
+    BackgroundTransparency = 1,
+    Image = "rbxassetid://92993587446526",
+    Size = UDim2.new(0, 14, 0, 14),
+    Position = UDim2.new(1, -20, 0.5, -7),
+    ScaleType = Enum.ScaleType.Fit
+}, providerBtn)
+
+local providerMenu = create("Frame", {
+    BackgroundColor3 = Color3.fromRGB(18, 26, 40),
+    Size = UDim2.new(0, 120, 0, 56),
+    Position = UDim2.new(0, 10, 0, 74),
+    Visible = false,
+    ClipsDescendants = true,
+    ZIndex = 10
+}, scriptsTab)
+corner(providerMenu, 8)
+stroke(providerMenu, Color3.fromRGB(70, 120, 190), 1, 0.5)
+
+local currentProvider = "Scriptblox"
+local rscriptsKeyBox
+
+local function makeProviderOption(text, yPos, value)
+    local btn = create("TextButton", {
+        BackgroundColor3 = Color3.fromRGB(24, 36, 52),
+        Size = UDim2.new(1, 0, 0, 26),
+        Position = UDim2.new(0, 0, yPos, 0),
+        Text = text,
+        Font = Enum.Font.Gotham,
+        TextSize = 12,
+        TextColor3 = Color3.fromRGB(220, 235, 255),
+        AutoButtonColor = true,
+        ZIndex = 11
+    }, providerMenu)
+    btn.MouseButton1Click:Connect(function()
+        currentProvider = value
+        providerBtn.Text = value
+        providerMenu.Visible = false
+        providerArrow.Image = "rbxassetid://92993587446526"
+        rscriptsKeyBox.Visible = (value == "RScripts")
+        
+        if value == "RScripts" then
+            rscriptsKeyBox.Position = UDim2.new(0, 10, 0, 78)
+            resultsList.Position = UDim2.new(0, 10, 0, 115)
+            resultsList.Size = UDim2.new(1, -20, 1, -145)
+        else
+            resultsList.Position = UDim2.new(0, 10, 0, 80)
+            resultsList.Size = UDim2.new(1, -20, 1, -110)
+        end
+    end)
+end
+
+makeProviderOption("Scriptblox", 0, "Scriptblox")
+makeProviderOption("RScripts", 26, "RScripts")
+
+providerBtn.MouseButton1Click:Connect(function()
+    providerMenu.Visible = not providerMenu.Visible
+    providerArrow.Image = providerMenu.Visible and "rbxassetid://133229409654787" or "rbxassetid://92993587446526"
+end)
+
+rscriptsKeyBox = create("TextBox", {
+    BackgroundColor3 = Color3.fromRGB(16, 24, 36),
+    BackgroundTransparency = 0.1,
+    Size = UDim2.new(1, -20, 0, 26),
+    Position = UDim2.new(0, 10, 0, 78),
+    PlaceholderText = "RScripts API key",
+    PlaceholderColor3 = Color3.fromRGB(140, 170, 210),
+    Text = "",
+    TextColor3 = Color3.fromRGB(230, 240, 255),
+    Font = Enum.Font.Gotham,
+    TextSize = 12,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    ClearTextOnFocus = false,
+    Visible = false
+}, scriptsTab)
+corner(rscriptsKeyBox, 8)
+stroke(rscriptsKeyBox, Color3.fromRGB(70, 120, 190), 1, 0.6)
+create("UIPadding", {PaddingLeft = UDim.new(0, 8)}, rscriptsKeyBox)
+
+local searchBox = create("TextBox", {
+    BackgroundColor3 = Color3.fromRGB(16, 24, 36),
+    BackgroundTransparency = 0.1,
+    Size = UDim2.new(1, -240, 0, 26),
+    Position = UDim2.new(0, 140, 0, 43),
+    PlaceholderText = "Search scripts...",
+    PlaceholderColor3 = Color3.fromRGB(140, 170, 210),
+    Text = "",
+    TextColor3 = Color3.fromRGB(230, 240, 255),
+    Font = Enum.Font.Gotham,
+    TextSize = 13,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    ClearTextOnFocus = false
+}, scriptsTab)
+corner(searchBox, 8)
+stroke(searchBox, Color3.fromRGB(70, 120, 190), 1, 0.6)
+create("UIPadding", {PaddingLeft = UDim.new(0, 8)}, searchBox)
+
+local searchBtn = create("TextButton", {
+    BackgroundColor3 = Color3.fromRGB(80, 145, 235),
+    Size = UDim2.new(0, 80, 0, 26),
+    Position = UDim2.new(1, -90, 0, 43),
+    Text = "Search",
+    Font = Enum.Font.GothamBold,
+    TextSize = 12,
+    TextColor3 = Color3.fromRGB(255, 255, 255)
+}, scriptsTab)
+corner(searchBtn, 8)
+gradient(searchBtn)
+
+local resultsList = create("ScrollingFrame", {
+    BackgroundTransparency = 1,
+    Size = UDim2.new(1, -20, 1, -110),
+    Position = UDim2.new(0, 10, 0, 80),
+    CanvasSize = UDim2.new(0, 0, 0, 0),
+    AutomaticCanvasSize = Enum.AutomaticSize.Y,
+    ScrollBarThickness = 4,
+    ScrollBarImageColor3 = FROST_HIGHLIGHT
+}, scriptsTab)
+create("UIListLayout", {SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8)}, resultsList)
+create("UIPadding", {PaddingRight = UDim.new(0, 6), PaddingBottom = UDim.new(0, 10)}, resultsList)
+
+local function clearResults()
+    for _, child in ipairs(resultsList:GetChildren()) do
+        if child:IsA("Frame") and child.Name == "ResultCard" then
+            child:Destroy()
+        end
+    end
+end
+
+local function makeResultCard(title, author, image, source)
+    local card = create("Frame", {
+        Name = "ResultCard",
+        BackgroundColor3 = Color3.fromRGB(20, 30, 46),
+        BackgroundTransparency = 0.05,
+        Size = UDim2.new(1, -10, 0, 88),
+        ClipsDescendants = true
+    }, resultsList)
+    corner(card, 10)
+    stroke(card, Color3.fromRGB(90, 150, 225), 1, 0.5)
+    gradient(card)
+
+    local img = create("ImageLabel", {
+        BackgroundTransparency = 1,
+        Image = image or "rbxassetid://12742166887",
+        Size = UDim2.new(0, 64, 0, 64),
+        Position = UDim2.new(0, 12, 0, 12),
+        ScaleType = Enum.ScaleType.Crop
+    }, card)
+    corner(img, 8)
+
+    create("TextLabel", {
+        BackgroundTransparency = 1,
+        Text = title,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Font = Enum.Font.GothamBold,
+        TextSize = 13,
+        TextColor3 = Color3.fromRGB(235, 245, 255),
+        Size = UDim2.new(1, -96, 0, 18),
+        Position = UDim2.new(0, 88, 0, 12),
+        TextTruncate = Enum.TextTruncate.AtEnd
+    }, card)
+
+    create("TextLabel", {
+        BackgroundTransparency = 1,
+        Text = "by " .. (author or "???"),
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Font = Enum.Font.Gotham,
+        TextSize = 11,
+        TextColor3 = Color3.fromRGB(160, 190, 225),
+        Size = UDim2.new(1, -96, 0, 14),
+        Position = UDim2.new(0, 88, 0, 32),
+        TextTruncate = Enum.TextTruncate.AtEnd
+    }, card)
+
+    local actions = create("Frame", {
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1, -100, 0, 24),
+        Position = UDim2.new(0, 88, 0, 54),
+        ClipsDescendants = true
+    }, card)
+    create("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8)}, actions)
+
+    local function resultBtn(text, width, callback)
+        local f = create("Frame", {
+            BackgroundColor3 = Color3.fromRGB(80, 145, 235),
+            Size = UDim2.new(0, width, 0, 22),
+            ClipsDescendants = true
+        }, actions)
+        corner(f, 11)
+        gradient(f)
+        local b = create("TextButton", {
+            BackgroundTransparency = 1,
+            Size = UDim2.new(1, 0, 1, 0),
+            Text = text,
+            Font = Enum.Font.GothamBold,
+            TextSize = 10,
+            TextColor3 = Color3.fromRGB(255, 255, 255)
+        }, f)
+        b.MouseButton1Click:Connect(callback)
+    end
+
+    resultBtn("Execute", 60, function()
+        local ok, err = pcall(function() loadstring(source)() end)
+        Notify("Frostium", ok and "Executed!" or ("Error: " .. tostring(err)), 2)
+    end)
+    resultBtn("Load", 74, function()
+        if loadIntoEditor then
+            loadIntoEditor(title, source)
+            switchTab("Editor")
+            Notify("Frostium", "Loaded into editor", 2)
+        end
+    end)
+    resultBtn("Copy", 54, function()
+        pcall(setclipboard, source)
+        Notify("Frostium", "Copied", 2)
+    end)
+end
+
+local function loadDefaultScripts()
+    clearResults()
+    makeResultCard("Infinite Yield", "EdgeIY", "rbxassetid://13070106387", 'loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))()')
+    makeResultCard("Dex Eclipse", "RileyBeeRBLX", "rbxassetid://126470357054346", 'loadstring(game:HttpGet("https://github.com/rileybeerblx1/DexEclipse/releases/download/Dex/out.lua"))()')
+    makeResultCard("Speed Hub X", "AhmadV99", "rbxassetid://97043737352532", 'loadstring(game:HttpGet("https://raw.githubusercontent.com/AhmadV99/Speed-Hub-X/main/Speed%20Hub%20X.lua", true))()')
+end
+
+local function searchScriptblox(query)
+    local ok, response = pcall(function()
+        return game:HttpGetAsync("https://scriptblox.com/api/script/search?q=" .. HttpService:UrlEncode(query) .. "&max=20")
+    end)
+    if not ok then Notify("Frostium", "Scriptblox request failed", 2); return end
+    local decodeOk, decoded = pcall(function() return HttpService:JSONDecode(response) end)
+    if not decodeOk or not decoded or not decoded.result or not decoded.result.scripts then
+        Notify("Frostium", "No Scriptblox results", 2); return
+    end
+    for _, s in ipairs(decoded.result.scripts) do
+        local img = s.isUniversal and "rbxassetid://128637488250626" or (s.game and s.game.imageUrl) or "rbxassetid://128637488250626"
+        makeResultCard(s.title or "Unknown", (s.owner and s.owner.username) or "???", img, s.script or "")
+    end
+end
+
+local function searchRScripts(query, key)
+    if not key or #key < 10 then Notify("Frostium", "RScripts API key required", 3); return end
+    local ok, response = pcall(function()
+        return game:HttpGetAsync("https://api.rscripts.net/v1/search?q=" .. HttpService:UrlEncode(query) .. "&index=scripts&limit=20", true, {["Authorization"] = "Bearer " .. key})
+    end)
+    if not ok then Notify("Frostium", "RScripts request failed", 2); return end
+    local decodeOk, decoded = pcall(function() return HttpService:JSONDecode(response) end)
+    if not decodeOk or not decoded or not decoded.success or not decoded.data then
+        Notify("Frostium", "No RScripts results", 2); return
+    end
+    local scripts = decoded.data.scripts or decoded.data
+    if type(scripts) ~= "table" then return end
+    for _, s in ipairs(scripts) do
+        local img = s.image or s.thumbnail or "rbxassetid://128637488250626"
+        local src = s.script or s.rawScript or ""
+        if #src == 0 and s.slug then
+            local rawOk, raw = pcall(function()
+                return game:HttpGet("https://api.rscripts.net/v1/scripts/" .. s.slug, true, {["Authorization"] = "Bearer " .. key})
+            end)
+            if rawOk then
+                local rawDecoded = HttpService:JSONDecode(raw)
+                src = rawDecoded.data and rawDecoded.data.script or ""
+            end
+        end
+        makeResultCard(s.title or s.name or "Unknown", (s.owner and s.owner.username) or "???", img, src)
+    end
+end
+
+searchBtn.MouseButton1Click:Connect(function()
+    clearResults()
+    local q = searchBox.Text
+    if #q < 1 then 
+        loadDefaultScripts()
+        return 
+    end
+    if currentProvider == "Scriptblox" then
+        searchScriptblox(q)
+    else
+        searchRScripts(q, rscriptsKeyBox.Text)
+    end
+end)
+
+makeHeading(settingsTab, "UI Settings")
+local settingsScroll = create("ScrollingFrame", {
+    BackgroundTransparency = 1,
+    Size = UDim2.new(1, -20, 1, -50),
+    Position = UDim2.new(0, 10, 0, 40),
+    CanvasSize = UDim2.new(0, 0, 0, 0),
+    AutomaticCanvasSize = Enum.AutomaticSize.Y,
+    ScrollBarThickness = 4,
+    ScrollBarImageColor3 = FROST_HIGHLIGHT
+}, settingsTab)
+create("UIListLayout", {SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 6)}, settingsScroll)
+create("UIPadding", {PaddingRight = UDim.new(0, 6), PaddingBottom = UDim.new(0, 10)}, settingsScroll)
+
+makeSection(settingsScroll, "Main Settings")
+
+local function makeSettingRow(parent, label, icon, callback, isReset, resetCallback, hasInput)
+    local row = create("Frame", {
+        BackgroundColor3 = Color3.fromRGB(20, 30, 46),
+        BackgroundTransparency = 0.05,
+        Size = UDim2.new(1, -6, 0, 40),
+        ClipsDescendants = true
+    }, parent)
+    corner(row, 8)
+    stroke(row, Color3.fromRGB(70, 120, 190), 1, 0.5)
+
+    if icon then
+        create("ImageLabel", {
+            BackgroundTransparency = 1,
+            Image = icon,
+            Size = UDim2.new(0, 18, 0, 18),
+            Position = UDim2.new(0, 10, 0.5, -9),
+            ScaleType = Enum.ScaleType.Fit
+        }, row)
+    end
+
+    create("TextLabel", {
+        BackgroundTransparency = 1,
+        Text = label,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Font = Enum.Font.Gotham,
+        TextSize = 12,
+        TextColor3 = Color3.fromRGB(220, 235, 255),
+        Size = UDim2.new(0.35, 0, 1, 0),
+        Position = UDim2.new(0, 36, 0, 0),
+        TextTruncate = Enum.TextTruncate.AtEnd
+    }, row)
+
+    if hasInput == false then
+        local clickBtn = create("TextButton", {
+            BackgroundColor3 = Color3.fromRGB(80, 145, 235),
+            Size = UDim2.new(0, 70, 0, 24),
+            Position = UDim2.new(1, -80, 0.5, -12),
+            Text = "Click",
+            Font = Enum.Font.GothamBold,
+            TextSize = 11,
+            TextColor3 = Color3.fromRGB(255, 255, 255)
+        }, row)
+        corner(clickBtn, 6)
+        gradient(clickBtn)
+        clickBtn.MouseButton1Click:Connect(function()
+            callback()
+        end)
+    else
+        local input = create("TextBox", {
+            BackgroundColor3 = Color3.fromRGB(16, 24, 36),
+            Size = UDim2.new(0, 60, 0, 24),
+            Position = UDim2.new(1, -146, 0.5, -12),
+            Text = "",
+            PlaceholderText = "...",
+            PlaceholderColor3 = Color3.fromRGB(140, 170, 210),
+            Font = Enum.Font.Gotham,
+            TextSize = 12,
+            TextColor3 = Color3.fromRGB(230, 240, 255),
+            ClearTextOnFocus = false
+        }, row)
+        corner(input, 6)
+        stroke(input, Color3.fromRGB(70, 120, 190), 1, 0.6)
+
+        local setBtn = create("TextButton", {
+            BackgroundColor3 = Color3.fromRGB(80, 145, 235),
+            Size = UDim2.new(0, 46, 0, 24),
+            Position = UDim2.new(1, -80, 0.5, -12),
+            Text = "Set",
+            Font = Enum.Font.GothamBold,
+            TextSize = 11,
+            TextColor3 = Color3.fromRGB(255, 255, 255)
+        }, row)
+        corner(setBtn, 6)
+        gradient(setBtn)
+
+        setBtn.MouseButton1Click:Connect(function()
+            callback(input.Text)
+        end)
+
+        if isReset then
+            input.Position = UDim2.new(1, -206, 0.5, -12)
+            setBtn.Position = UDim2.new(1, -138, 0.5, -12)
+            local resetBtn = create("TextButton", {
+                BackgroundColor3 = Color3.fromRGB(40, 60, 90),
+                Size = UDim2.new(0, 50, 0, 24),
+                Position = UDim2.new(1, -80, 0.5, -12),
+                Text = "Reset",
+                Font = Enum.Font.GothamBold,
+                TextSize = 11,
+                TextColor3 = Color3.fromRGB(230, 240, 255)
+            }, row)
+            corner(resetBtn, 6)
+            resetBtn.MouseButton1Click:Connect(resetCallback)
+        end
+    end
+    return row
+end
+
+makeSettingRow(settingsScroll, "Walk Speed", "rbxassetid://130006650864115", function(val)
+    local n = tonumber(val)
+    if n and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+        LocalPlayer.Character.Humanoid.WalkSpeed = n
+    end
+end, false, nil, true)
+
+makeSettingRow(settingsScroll, "Jump Power", "rbxassetid://126825186378963", function(val)
+    local n = tonumber(val)
+    if n and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+        LocalPlayer.Character.Humanoid.JumpPower = n
+    end
+end, false, nil, true)
+
+makeSettingRow(settingsScroll, "Gravity", "rbxassetid://125873389519219", function(val)
+    local n = tonumber(val)
+    if n then workspace.Gravity = n end
+end, true, function()
+    workspace.Gravity = 196.2
+end, true)
+
+makeSettingRow(settingsScroll, "Copy Discord Invite", "rbxassetid://71038734318580", function()
+    pcall(setclipboard, "https://discord.gg/au8CpZBCXg")
+    Notify("Frostium", "Discord invite copied", 2)
+end, false, nil, false)
+
+makeSettingRow(settingsScroll, "Show Credits", "rbxassetid://125161627986415", function()
+    Notify("Frostium", "Made by Frostium Team", 4)
+end, false, nil, false)
+
+makeSettingRow(settingsScroll, "Unlock FPS", "rbxassetid://128063016456306", function()
+    pcall(setfpscap, 0)
+    Notify("Frostium", "FPS unlocked", 2)
+end, false, nil, false)
+
+makeSettingRow(settingsScroll, "Open Console", "rbxassetid://71466343335951", function()
+    local success = pcall(function()
+        game:GetService("StarterGui"):SetCore("DevConsoleVisible", true)
+    end)
+
+    if success then
+        Notify("Frostium", "Console opened!", 2)
+    else
+        Notify("Frostium", "Unable to open console!", 2)
+    end
+end, false, nil, false)
+
+makeSection(settingsScroll, "Information")
+
+local function makeInfoRow(parent, label, valueGetter)
+    local row = create("Frame", {
+        BackgroundColor3 = Color3.fromRGB(20, 30, 46),
+        BackgroundTransparency = 0.05,
+        Size = UDim2.new(1, -6, 0, 30),
+        ClipsDescendants = true
+    }, parent)
+    corner(row, 8)
+    stroke(row, Color3.fromRGB(70, 120, 190), 1, 0.5)
+    create("TextLabel", {
+        BackgroundTransparency = 1,
+        Text = label,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Font = Enum.Font.Gotham,
+        TextSize = 12,
+        TextColor3 = Color3.fromRGB(190, 215, 245),
+        Size = UDim2.new(0.55, 0, 1, 0),
+        Position = UDim2.new(0, 10, 0, 0),
+        TextTruncate = Enum.TextTruncate.AtEnd
+    }, row)
+    local valueLabel = create("TextLabel", {
+        BackgroundTransparency = 1,
+        Text = "",
+        TextXAlignment = Enum.TextXAlignment.Right,
+        Font = Enum.Font.GothamBold,
+        TextSize = 12,
+        TextColor3 = Color3.fromRGB(235, 245, 255),
+        Size = UDim2.new(0.4, 0, 1, 0),
+        Position = UDim2.new(0.57, 0, 0, 0),
+        TextTruncate = Enum.TextTruncate.AtEnd
+    }, row)
+    task.spawn(function()
+        while row.Parent do
+            pcall(function() valueLabel.Text = tostring(valueGetter()) end)
+            task.wait(1)
+        end
+    end)
+    return row
+end
+
+local fpsCounter = 0
+local fpsTimer = 0
+_G.frostiumFPS = 0
+RunService.RenderStepped:Connect(function(dt)
+    fpsCounter = fpsCounter + 1
+    fpsTimer = fpsTimer + dt
+    if fpsTimer >= 1 then
+        _G.frostiumFPS = math.floor(fpsCounter / fpsTimer)
+        fpsCounter = 0
+        fpsTimer = 0
+    end
+end)
+
+makeInfoRow(settingsScroll, "Current FPS", function() return _G.frostiumFPS or 0 end)
+makeInfoRow(settingsScroll, "Current Ping", function()
+    local ok, ping = pcall(function() return Stats.Network.ServerStatsItem["Data Ping"]:GetValue() end)
+    return ok and (math.floor(ping) .. " ms") or "???"
+end)
+makeInfoRow(settingsScroll, "Total Players", function()
+    return tostring(#Players:GetPlayers()) .. "/" .. tostring(Players.MaxPlayers)
+end)
+makeInfoRow(settingsScroll, "Game", function()
+    local ok, name = pcall(function() return MarketplaceService:GetProductInfo(game.PlaceId).Name end)
+    return ok and name or game.Name
+end)
+
+task.spawn(function()
+    local ok, thumb = pcall(function() return Players:GetUserThumbnailAsync(LocalPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size150x150) end)
+    if ok and thumb then avatar.Image = thumb end
+    welcome.Text = "Welcome, " .. (LocalPlayer.DisplayName or LocalPlayer.Name) .. "!"
+end)
+
+workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+    uiScale.Scale = scaleForDevice()
+end)
+
+loadDefaultScripts()
+switchTab("Home")
+mainFrame.Visible = true
