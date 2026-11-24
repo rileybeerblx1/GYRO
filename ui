@@ -1,8 +1,9 @@
-if _G.is_frostium_loaded then return end
-_G.is_frostium_loaded = true
+if _G.heliumRoot and _G.heliumRoot.Parent then
+    pcall(function() _G.heliumRoot:Destroy() end)
+end
 
-pcall(makefolder, "FrostiumAndroid")
-pcall(makefolder, "FrostiumAndroid/scripts")
+pcall(makefolder, "HeliumAndroid")
+pcall(makefolder, "HeliumAndroid/scripts")
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -12,8 +13,36 @@ local RunService = game:GetService("RunService")
 local StarterGui = game:GetService("StarterGui")
 local Stats = game:GetService("Stats")
 local MarketplaceService = game:GetService("MarketplaceService")
+local TeleportService = game:GetService("TeleportService")
 
 local LocalPlayer = Players.LocalPlayer
+
+local function getGuiParent()
+    if gethui then
+        local ok, hui = pcall(gethui)
+        if ok and hui then return hui end
+    end
+    local ok, cg = pcall(function() return game:GetService("CoreGui") end)
+    if ok and cg then return cg end
+    return LocalPlayer:WaitForChild("PlayerGui")
+end
+
+local function httpGet(url, headers)
+    headers = headers or {}
+    if http_request then
+        local ok, res = pcall(http_request, {Url = url, Method = "GET", Headers = headers})
+        if ok and res and res.Body then return res.Body end
+    end
+    if request then
+        local ok, res = pcall(request, {Url = url, Method = "GET", Headers = headers})
+        if ok and res and res.Body then return res.Body end
+    end
+    if syn and syn.request then
+        local ok, res = pcall(syn.request, {Url = url, Method = "GET", Headers = headers})
+        if ok and res and res.Body then return res.Body end
+    end
+    return game:HttpGet(url, true)
+end
 
 local loadIntoEditor
 local switchTab
@@ -42,7 +71,7 @@ end
 
 local function stroke(parent, color, thickness, transparency)
     local s = Instance.new("UIStroke")
-    s.Color = color or Color3.fromRGB(140, 190, 255)
+    s.Color = color or Color3.fromRGB(150, 110, 255)
     s.Thickness = thickness or 1
     s.Transparency = transparency or 0.4
     s.Parent = parent
@@ -52,16 +81,16 @@ end
 local function gradient(parent, rotation)
     local g = Instance.new("UIGradient")
     g.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(170, 215, 255)),
-        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(110, 175, 255)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(70, 135, 230))
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(160, 120, 255)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(130, 90, 230)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(100, 60, 200))
     })
     g.Rotation = rotation or 45
     g.Parent = parent
     return g
 end
 
-local FROST_HIGHLIGHT = Color3.fromRGB(120, 190, 255)
+local FLUX_HIGHLIGHT = Color3.fromRGB(160, 120, 255)
 
 local function tween(obj, props, time)
     local t = TweenService:Create(obj, TweenInfo.new(time or 0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), props)
@@ -79,11 +108,12 @@ local function scaleForDevice()
 end
 
 local root = create("ScreenGui", {
-    Name = "FrostiumUI",
+    Name = "HeliumUI",
     ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
     ResetOnSpawn = false,
     IgnoreGuiInset = true
-}, gethui())
+}, getGuiParent())
+_G.heliumRoot = root
 
 local uiScale = create("UIScale", {Scale = scaleForDevice()}, root)
 
@@ -91,9 +121,9 @@ local toggleBtn
 local mainFrame
 
 toggleBtn = create("ImageButton", {
-    Name = "FrostiumToggle",
-    BackgroundColor3 = Color3.fromRGB(18, 26, 40),
-    Image = "rbxassetid://96682868223824",
+    Name = "HeliumToggle",
+    BackgroundColor3 = Color3.fromRGB(28, 28, 36),
+    Image = "rbxassetid://82716031578915",
     Size = UDim2.new(0, 42, 0, 42),
     Position = UDim2.new(0.5, 0, 0, 12),
     AnchorPoint = Vector2.new(0.5, 0),
@@ -103,14 +133,14 @@ toggleBtn = create("ImageButton", {
     ZIndex = 50
 }, root)
 corner(toggleBtn, 21)
-stroke(toggleBtn, Color3.fromRGB(140, 190, 255), 1.5, 0.25)
+stroke(toggleBtn, Color3.fromRGB(150, 110, 255), 1.5, 0.25)
 gradient(toggleBtn)
 create("UIAspectRatioConstraint", {AspectRatio = 1}, toggleBtn)
 
 mainFrame = create("Frame", {
     Name = "MainFrame",
     Active = true,
-    BackgroundColor3 = Color3.fromRGB(14, 20, 30),
+    BackgroundColor3 = Color3.fromRGB(22, 22, 28),
     Size = UDim2.new(0.62, 0, 0.78, 0),
     Position = UDim2.new(0.19, 0, 0.11, 0),
     Visible = true,
@@ -118,12 +148,12 @@ mainFrame = create("Frame", {
     ZIndex = 1
 }, root)
 corner(mainFrame, 10)
-stroke(mainFrame, Color3.fromRGB(130, 180, 245), 1.5, 0.35)
+stroke(mainFrame, Color3.fromRGB(140, 100, 240), 1.5, 0.35)
 gradient(mainFrame)
 
 local sidebar = create("Frame", {
     Name = "Sidebar",
-    BackgroundColor3 = Color3.fromRGB(18, 26, 40),
+    BackgroundColor3 = Color3.fromRGB(28, 28, 36),
     BackgroundTransparency = 0.1,
     Size = UDim2.new(0.13, 0, 1, 0),
     ClipsDescendants = true
@@ -132,16 +162,16 @@ corner(sidebar, 10)
 gradient(sidebar)
 create("Frame", {
     Name = "Divider",
-    BackgroundColor3 = Color3.fromRGB(90, 150, 225),
+    BackgroundColor3 = Color3.fromRGB(120, 80, 220),
     Size = UDim2.new(0, 2, 0.94, 0),
     Position = UDim2.new(1, -2, 0.03, 0),
     BorderSizePixel = 0
 }, sidebar)
 
-local logo = create("ImageLabel", {
+create("ImageLabel", {
     Name = "Logo",
     BackgroundTransparency = 1,
-    Image = "rbxassetid://96682868223824",
+    Image = "rbxassetid://82716031578915",
     Size = UDim2.new(0, 44, 0, 44),
     Position = UDim2.new(0.5, -22, 0, 12),
     ScaleType = Enum.ScaleType.Fit
@@ -210,7 +240,7 @@ local function makeHeading(parent, text)
         TextXAlignment = Enum.TextXAlignment.Left,
         Font = Enum.Font.GothamBold,
         TextSize = 20,
-        TextColor3 = Color3.fromRGB(225, 240, 255),
+        TextColor3 = Color3.fromRGB(235, 230, 255),
         Size = UDim2.new(1, -20, 0, 30),
         Position = UDim2.new(0, 10, 0, 5),
         TextTruncate = Enum.TextTruncate.AtEnd
@@ -225,7 +255,7 @@ local function makeSection(parent, text)
         TextXAlignment = Enum.TextXAlignment.Left,
         Font = Enum.Font.GothamBold,
         TextSize = 14,
-        TextColor3 = Color3.fromRGB(160, 200, 250),
+        TextColor3 = Color3.fromRGB(180, 150, 255),
         Size = UDim2.new(1, -20, 0, 24),
         TextTruncate = Enum.TextTruncate.AtEnd
     }, parent)
@@ -234,13 +264,13 @@ end
 local function makeCard(parent, height)
     local card = create("Frame", {
         Name = "Card",
-        BackgroundColor3 = Color3.fromRGB(20, 30, 46),
+        BackgroundColor3 = Color3.fromRGB(32, 32, 42),
         BackgroundTransparency = 0.05,
         Size = UDim2.new(1, 0, 0, height),
         ClipsDescendants = true
     }, parent)
     corner(card, 10)
-    stroke(card, Color3.fromRGB(90, 150, 225), 1, 0.5)
+    stroke(card, Color3.fromRGB(120, 80, 220), 1, 0.5)
     gradient(card)
     return card
 end
@@ -248,7 +278,7 @@ end
 local function makeActionButton(parent, name, text, icon, width)
     local f = create("Frame", {
         Name = name,
-        BackgroundColor3 = Color3.fromRGB(80, 145, 235),
+        BackgroundColor3 = Color3.fromRGB(130, 90, 230),
         Size = UDim2.new(0, width, 0, 28),
         ClipsDescendants = true
     }, parent)
@@ -291,7 +321,7 @@ switchTab = function(tabName)
     local buttons = {User = userBtn, Home = homeBtn, Editor = editorBtn, Scripts = scriptsBtn, Settings = settingsBtn}
     for name, btn in pairs(buttons) do
         if name == tabName then
-            tween(btn, {ImageColor3 = FROST_HIGHLIGHT}, 0.15)
+            tween(btn, {ImageColor3 = FLUX_HIGHLIGHT}, 0.15)
         else
             tween(btn, {ImageColor3 = Color3.fromRGB(255, 255, 255)}, 0.15)
         end
@@ -389,7 +419,7 @@ local function highlightLua(src)
         if c == "-" and src:sub(i, i + 1) == "--" then
             local nl = src:find("\n", i, true)
             local comment = nl and src:sub(i, nl - 1) or src:sub(i)
-            table.insert(out, '<font color="#6b7a99">' .. esc(comment) .. '</font>')
+            table.insert(out, '<font color="#8a7ab0">' .. esc(comment) .. '</font>')
             i = nl or (n + 1)
         elseif c == '"' or c == "'" then
             local j = i + 1
@@ -410,7 +440,7 @@ local function highlightLua(src)
             while j <= n and src:sub(j, j):match("[%w_]") do j = j + 1 end
             local word = src:sub(i, j - 1)
             if keywords[word] then table.insert(out, '<font color="#ff7b72">' .. word .. '</font>')
-            elseif builtins[word] then table.insert(out, '<font color="#79c0ff">' .. word .. '</font>')
+            elseif builtins[word] then table.insert(out, '<font color="#c4a7ff">' .. word .. '</font>')
             else table.insert(out, '<font color="#e6edf3">' .. word .. '</font>') end
             i = j
         else
@@ -429,7 +459,7 @@ local userScroll = create("ScrollingFrame", {
     CanvasSize = UDim2.new(0, 0, 0, 0),
     AutomaticCanvasSize = Enum.AutomaticSize.Y,
     ScrollBarThickness = 4,
-    ScrollBarImageColor3 = FROST_HIGHLIGHT
+    ScrollBarImageColor3 = FLUX_HIGHLIGHT
 }, userTab)
 create("UIListLayout", {SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 10)}, userScroll)
 create("UIPadding", {PaddingRight = UDim.new(0, 6), PaddingBottom = UDim.new(0, 10)}, userScroll)
@@ -443,7 +473,7 @@ local avatar = create("ImageLabel", {
     ScaleType = Enum.ScaleType.Crop
 }, userCard)
 corner(avatar, 28)
-stroke(avatar, FROST_HIGHLIGHT, 1.5, 0.4)
+stroke(avatar, FLUX_HIGHLIGHT, 1.5, 0.4)
 
 local welcome = create("TextLabel", {
     BackgroundTransparency = 1,
@@ -451,7 +481,7 @@ local welcome = create("TextLabel", {
     TextXAlignment = Enum.TextXAlignment.Left,
     Font = Enum.Font.GothamBold,
     TextSize = 16,
-    TextColor3 = Color3.fromRGB(235, 245, 255),
+    TextColor3 = Color3.fromRGB(240, 235, 255),
     Size = UDim2.new(0.65, 0, 0, 20),
     Position = UDim2.new(0, 80, 0, 16),
     TextTruncate = Enum.TextTruncate.AtEnd
@@ -459,11 +489,11 @@ local welcome = create("TextLabel", {
 
 create("TextLabel", {
     BackgroundTransparency = 1,
-    Text = "Thanks for using Frostium",
+    Text = "Thanks for using Helium",
     TextXAlignment = Enum.TextXAlignment.Left,
     Font = Enum.Font.Gotham,
     TextSize = 12,
-    TextColor3 = Color3.fromRGB(160, 190, 225),
+    TextColor3 = Color3.fromRGB(180, 160, 220),
     Size = UDim2.new(0.65, 0, 0, 16),
     Position = UDim2.new(0, 80, 0, 38),
     TextTruncate = Enum.TextTruncate.AtEnd
@@ -476,20 +506,20 @@ create("TextLabel", {
     TextXAlignment = Enum.TextXAlignment.Left,
     Font = Enum.Font.GothamBold,
     TextSize = 15,
-    TextColor3 = Color3.fromRGB(225, 240, 255),
+    TextColor3 = Color3.fromRGB(235, 230, 255),
     Size = UDim2.new(0.9, 0, 0, 18),
     Position = UDim2.new(0, 12, 0, 8)
 }, keyCard)
 
 local barBg = create("Frame", {
-    BackgroundColor3 = Color3.fromRGB(35, 50, 70),
+    BackgroundColor3 = Color3.fromRGB(40, 40, 55),
     Size = UDim2.new(0.55, 0, 0, 8),
     Position = UDim2.new(0, 12, 0, 32),
     BorderSizePixel = 0
 }, keyCard)
 corner(barBg, 4)
 local barFill = create("Frame", {
-    BackgroundColor3 = FROST_HIGHLIGHT,
+    BackgroundColor3 = FLUX_HIGHLIGHT,
     Size = UDim2.new(1, 0, 1, 0),
     BorderSizePixel = 0
 }, barBg)
@@ -502,7 +532,7 @@ create("TextLabel", {
     TextXAlignment = Enum.TextXAlignment.Left,
     Font = Enum.Font.Gotham,
     TextSize = 11,
-    TextColor3 = Color3.fromRGB(170, 210, 250),
+    TextColor3 = Color3.fromRGB(180, 160, 230),
     Size = UDim2.new(0.4, 0, 0, 14),
     Position = UDim2.new(0, 12, 0, 46)
 }, keyCard)
@@ -511,23 +541,23 @@ local introCard = makeCard(userScroll, 0)
 introCard.AutomaticSize = Enum.AutomaticSize.Y
 create("TextLabel", {
     BackgroundTransparency = 1,
-    Text = "Frostium Introduction",
+    Text = "Helium Introduction",
     TextXAlignment = Enum.TextXAlignment.Left,
     Font = Enum.Font.GothamBold,
     TextSize = 15,
-    TextColor3 = Color3.fromRGB(225, 240, 255),
+    TextColor3 = Color3.fromRGB(235, 230, 255),
     Size = UDim2.new(0.9, 0, 0, 18),
     Position = UDim2.new(0, 12, 0, 8)
 }, introCard)
 create("TextLabel", {
     BackgroundTransparency = 1,
-    Text = "Frostium is a lightweight, executor built for performance, clarity, and a smooth mobile-first experience. It includes a code editor, cloud script search, saved scripts, and quick game tweaks.",
+    Text = "Helium is a lightweight executor built for performance, clarity, and a smooth mobile-first experience. It includes a code editor, cloud script search, saved scripts, and quick game tweaks.",
     TextXAlignment = Enum.TextXAlignment.Left,
     TextYAlignment = Enum.TextYAlignment.Top,
     TextWrapped = true,
     Font = Enum.Font.Gotham,
     TextSize = 12,
-    TextColor3 = Color3.fromRGB(175, 205, 240),
+    TextColor3 = Color3.fromRGB(190, 175, 230),
     Size = UDim2.new(1, -24, 0, 0),
     AutomaticSize = Enum.AutomaticSize.Y,
     Position = UDim2.new(0, 12, 0, 30)
@@ -542,7 +572,7 @@ local homeList = create("ScrollingFrame", {
     CanvasSize = UDim2.new(0, 0, 0, 0),
     AutomaticCanvasSize = Enum.AutomaticSize.Y,
     ScrollBarThickness = 4,
-    ScrollBarImageColor3 = FROST_HIGHLIGHT
+    ScrollBarImageColor3 = FLUX_HIGHLIGHT
 }, homeTab)
 create("UIListLayout", {SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8)}, homeList)
 create("UIPadding", {PaddingRight = UDim.new(0, 6), PaddingBottom = UDim.new(0, 10)}, homeList)
@@ -564,14 +594,14 @@ local function makeScriptCard(parent, name, source, isBuiltIn, onDelete)
         TextXAlignment = Enum.TextXAlignment.Left,
         Font = Enum.Font.GothamBold,
         TextSize = 13,
-        TextColor3 = Color3.fromRGB(235, 245, 255),
+        TextColor3 = Color3.fromRGB(240, 235, 255),
         Size = UDim2.new(isBuiltIn and 0.6 or 0.9, 0, 1, 0),
         TextTruncate = Enum.TextTruncate.AtEnd
     }, titleRow)
 
     if isBuiltIn then
         local tag = create("Frame", {
-            BackgroundColor3 = Color3.fromRGB(60, 130, 240),
+            BackgroundColor3 = Color3.fromRGB(120, 80, 220),
             Size = UDim2.new(0, 56, 0, 16),
             Position = UDim2.new(0.62, 0, 0.5, -8)
         }, titleRow)
@@ -596,7 +626,7 @@ local function makeScriptCard(parent, name, source, isBuiltIn, onDelete)
 
     local function smallBtn(text, width, icon, callback)
         local f = create("Frame", {
-            BackgroundColor3 = Color3.fromRGB(80, 145, 235),
+            BackgroundColor3 = Color3.fromRGB(130, 90, 230),
             Size = UDim2.new(0, width, 0, 24),
             ClipsDescendants = true
         }, actionRow)
@@ -626,20 +656,20 @@ local function makeScriptCard(parent, name, source, isBuiltIn, onDelete)
 
     smallBtn("Execute", 70, "rbxassetid://82682091622365", function()
         local ok, err = pcall(function() loadstring(source)() end)
-        Notify("Frostium", ok and "Executed successfully!" or ("Error: " .. tostring(err)), 2)
+        Notify("Helium", ok and "Executed successfully!" or ("Error: " .. tostring(err)), 2)
     end)
 
     smallBtn("Load in Editor", 100, "rbxassetid://137231383216181", function()
         if loadIntoEditor then
             loadIntoEditor(name, source)
             switchTab("Editor")
-            Notify("Frostium", "Loaded into editor", 2)
+            Notify("Helium", "Loaded into editor", 2)
         end
     end)
 
     smallBtn("Copy", 54, "rbxassetid://140087399831489", function()
         pcall(setclipboard, source)
-        Notify("Frostium", "Copied to clipboard", 2)
+        Notify("Helium", "Copied to clipboard", 2)
     end)
 
     smallBtn("Delete", 60, "rbxassetid://124950181079965", function()
@@ -659,14 +689,14 @@ local savedContainer = create("Frame", {
 create("UIListLayout", {SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8)}, savedContainer)
 
 local function addSavedScript(name, source, loading)
-    if not loading then pcall(writefile, "FrostiumAndroid/scripts/" .. name .. ".lua", source) end
+    if not loading then pcall(writefile, "HeliumAndroid/scripts/" .. name .. ".lua", source) end
     makeScriptCard(savedContainer, name, source, false, function()
-        pcall(delfile, "FrostiumAndroid/scripts/" .. name .. ".lua")
+        pcall(delfile, "HeliumAndroid/scripts/" .. name .. ".lua")
     end)
 end
 
 pcall(function()
-    for _, file in ipairs(listfiles("FrostiumAndroid/scripts")) do
+    for _, file in ipairs(listfiles("HeliumAndroid/scripts")) do
         local name = file:match("([^/\\]+)%.lua$") or file
         local src = readfile(file)
         if src then addSavedScript(name, src, true) end
@@ -682,7 +712,7 @@ local tabBar = create("ScrollingFrame", {
     AutomaticCanvasSize = Enum.AutomaticSize.X,
     ScrollingDirection = Enum.ScrollingDirection.X,
     ScrollBarThickness = 3,
-    ScrollBarImageColor3 = FROST_HIGHLIGHT,
+    ScrollBarImageColor3 = FLUX_HIGHLIGHT,
     ClipsDescendants = true
 }, editorTab)
 create("UIListLayout", {SortOrder = Enum.SortOrder.LayoutOrder, FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 4)}, tabBar)
@@ -693,18 +723,18 @@ local tabCounter = 0
 local lastTabClick = {}
 
 local codeScroll = create("ScrollingFrame", {
-    BackgroundColor3 = Color3.fromRGB(12, 18, 28),
+    BackgroundColor3 = Color3.fromRGB(18, 18, 24),
     BackgroundTransparency = 0.1,
     Size = UDim2.new(1, -20, 1, -135),
     Position = UDim2.new(0, 10, 0, 80),
     CanvasSize = UDim2.new(0, 0, 0, 0),
     AutomaticCanvasSize = Enum.AutomaticSize.Y,
     ScrollBarThickness = 5,
-    ScrollBarImageColor3 = FROST_HIGHLIGHT,
+    ScrollBarImageColor3 = FLUX_HIGHLIGHT,
     ClipsDescendants = true
 }, editorTab)
 corner(codeScroll, 8)
-stroke(codeScroll, Color3.fromRGB(70, 120, 190), 1, 0.5)
+stroke(codeScroll, Color3.fromRGB(100, 70, 180), 1, 0.5)
 
 local lineNumbers = create("TextLabel", {
     BackgroundTransparency = 1,
@@ -715,7 +745,7 @@ local lineNumbers = create("TextLabel", {
     TextYAlignment = Enum.TextYAlignment.Top,
     Font = Enum.Font.Code,
     TextSize = 16,
-    TextColor3 = Color3.fromRGB(120, 150, 190),
+    TextColor3 = Color3.fromRGB(130, 120, 170),
     AutomaticSize = Enum.AutomaticSize.Y
 }, codeScroll)
 
@@ -729,7 +759,7 @@ local highlightLabel = create("TextLabel", {
     TextYAlignment = Enum.TextYAlignment.Top,
     Font = Enum.Font.Code,
     TextSize = 16,
-    TextColor3 = Color3.fromRGB(230, 240, 255),
+    TextColor3 = Color3.fromRGB(235, 230, 255),
     TextWrapped = true,
     AutomaticSize = Enum.AutomaticSize.Y,
     ZIndex = 1
@@ -740,13 +770,13 @@ local codeBox = create("TextBox", {
     Size = UDim2.new(1, -60, 0, 0),
     Position = UDim2.new(0, 52, 0, 6),
     Text = "",
-    PlaceholderText = "-- Frostium on Top!",
-    PlaceholderColor3 = Color3.fromRGB(100, 130, 170),
+    PlaceholderText = "-- Helium on Top!",
+    PlaceholderColor3 = Color3.fromRGB(110, 100, 150),
     TextXAlignment = Enum.TextXAlignment.Left,
     TextYAlignment = Enum.TextYAlignment.Top,
     Font = Enum.Font.Code,
     TextSize = 16,
-    TextColor3 = Color3.fromRGB(230, 240, 255),
+    TextColor3 = Color3.fromRGB(235, 230, 255),
     TextTransparency = 1,
     MultiLine = true,
     TextWrapped = true,
@@ -817,14 +847,14 @@ local function rebuildTabBar()
     tabBarButtons = {}
     for i, t in ipairs(editorTabs) do
         local btn = create("TextButton", {
-            BackgroundColor3 = i == activeEditorTab and Color3.fromRGB(60, 120, 210) or Color3.fromRGB(30, 45, 65),
+            BackgroundColor3 = i == activeEditorTab and Color3.fromRGB(110, 70, 200) or Color3.fromRGB(40, 40, 55),
             Size = UDim2.new(0, 120, 0, 24),
             Text = "",
             AutoButtonColor = false,
             ClipsDescendants = true
         }, tabBar)
         corner(btn, 6)
-        stroke(btn, i == activeEditorTab and FROST_HIGHLIGHT or Color3.fromRGB(60, 90, 130), 1, 0.4)
+        stroke(btn, i == activeEditorTab and FLUX_HIGHLIGHT or Color3.fromRGB(80, 60, 130), 1, 0.4)
 
         local label = create("TextLabel", {
             BackgroundTransparency = 1,
@@ -832,7 +862,7 @@ local function rebuildTabBar()
             TextXAlignment = Enum.TextXAlignment.Left,
             Font = Enum.Font.GothamBold,
             TextSize = 11,
-            TextColor3 = Color3.fromRGB(235, 245, 255),
+            TextColor3 = Color3.fromRGB(240, 235, 255),
             Size = UDim2.new(1, -24, 1, 0),
             Position = UDim2.new(0, 6, 0, 0),
             TextTruncate = Enum.TextTruncate.AtEnd
@@ -860,7 +890,7 @@ local function rebuildTabBar()
             local now = tick()
             if lastTabClick[btn] and now - lastTabClick[btn] < 0.35 then
                 local renameBox = create("TextBox", {
-                    BackgroundColor3 = Color3.fromRGB(20, 30, 45),
+                    BackgroundColor3 = Color3.fromRGB(30, 30, 42),
                     Size = UDim2.new(1, -4, 1, -2),
                     Position = UDim2.new(0, 2, 0, 1),
                     Text = t.name,
@@ -900,14 +930,14 @@ local function rebuildTabBar()
     end
     
     local addBtn = create("TextButton", {
-        BackgroundColor3 = Color3.fromRGB(40, 60, 90),
+        BackgroundColor3 = Color3.fromRGB(50, 50, 70),
         Size = UDim2.new(0, 24, 0, 24),
         Text = "",
         AutoButtonColor = false,
         ClipsDescendants = true
     }, tabBar)
     corner(addBtn, 6)
-    stroke(addBtn, Color3.fromRGB(70, 120, 190), 1, 0.4)
+    stroke(addBtn, Color3.fromRGB(100, 70, 180), 1, 0.4)
     create("ImageLabel", {
         BackgroundTransparency = 1,
         Image = "rbxassetid://139478909806812",
@@ -947,12 +977,12 @@ local saveBtn, saveBtnInner = makeActionButton(editorActions, "Save", "Save", "r
 
 execBtnInner.MouseButton1Click:Connect(function()
     local ok, err = pcall(function() loadstring(codeBox.Text)() end)
-    Notify("Frostium", ok and "Executed successfully" or ("Error: " .. tostring(err)), 3)
+    Notify("Helium", ok and "Executed successfully" or ("Error: " .. tostring(err)), 3)
 end)
 
 copyBtnInner.MouseButton1Click:Connect(function()
     pcall(setclipboard, codeBox.Text)
-    Notify("Frostium", "Copied to clipboard", 2)
+    Notify("Helium", "Copied to clipboard", 2)
 end)
 
 pasteBtnInner.MouseButton1Click:Connect(function()
@@ -970,14 +1000,14 @@ end)
 
 local saveModal = create("Frame", {
     Name = "SaveModal",
-    BackgroundColor3 = Color3.fromRGB(14, 20, 30),
+    BackgroundColor3 = Color3.fromRGB(22, 22, 28),
     Size = UDim2.new(0, 300, 0, 150),
     Position = UDim2.new(0.5, -150, 0.5, -75),
     Visible = false,
     ZIndex = 100
 }, root)
 corner(saveModal, 10)
-stroke(saveModal, FROST_HIGHLIGHT, 1.5, 0.2)
+stroke(saveModal, FLUX_HIGHLIGHT, 1.5, 0.2)
 gradient(saveModal)
 
 create("TextLabel", {
@@ -985,31 +1015,31 @@ create("TextLabel", {
     Text = "Saved Script Name",
     Font = Enum.Font.GothamBold,
     TextSize = 16,
-    TextColor3 = Color3.fromRGB(225, 240, 255),
+    TextColor3 = Color3.fromRGB(235, 230, 255),
     Size = UDim2.new(1, 0, 0, 30),
     Position = UDim2.new(0, 0, 0, 10),
     ZIndex = 101
 }, saveModal)
 
 local modalInput = create("TextBox", {
-    BackgroundColor3 = Color3.fromRGB(20, 30, 46),
+    BackgroundColor3 = Color3.fromRGB(32, 32, 42),
     Size = UDim2.new(1, -40, 0, 30),
     Position = UDim2.new(0, 20, 0, 45),
     PlaceholderText = "Input here... (Optional)",
-    PlaceholderColor3 = Color3.fromRGB(140, 170, 210),
+    PlaceholderColor3 = Color3.fromRGB(140, 130, 180),
     Text = "",
-    TextColor3 = Color3.fromRGB(230, 240, 255),
+    TextColor3 = Color3.fromRGB(235, 230, 255),
     Font = Enum.Font.Gotham,
     TextSize = 14,
     ClearTextOnFocus = false,
     ZIndex = 101
 }, saveModal)
 corner(modalInput, 6)
-stroke(modalInput, Color3.fromRGB(70, 120, 190), 1, 0.6)
+stroke(modalInput, Color3.fromRGB(100, 70, 180), 1, 0.6)
 create("UIPadding", {PaddingLeft = UDim.new(0, 10)}, modalInput)
 
 local modalSaveBtn = create("TextButton", {
-    BackgroundColor3 = Color3.fromRGB(80, 145, 235),
+    BackgroundColor3 = Color3.fromRGB(130, 90, 230),
     Size = UDim2.new(0, 120, 0, 30),
     Position = UDim2.new(0.5, -125, 1, -45),
     Text = "Save",
@@ -1022,13 +1052,13 @@ corner(modalSaveBtn, 6)
 gradient(modalSaveBtn)
 
 local modalCancelBtn = create("TextButton", {
-    BackgroundColor3 = Color3.fromRGB(40, 60, 90),
+    BackgroundColor3 = Color3.fromRGB(50, 50, 70),
     Size = UDim2.new(0, 120, 0, 30),
     Position = UDim2.new(0.5, 5, 1, -45),
     Text = "Cancel",
     Font = Enum.Font.GothamBold,
     TextSize = 12,
-    TextColor3 = Color3.fromRGB(220, 235, 255),
+    TextColor3 = Color3.fromRGB(220, 215, 245),
     ZIndex = 101
 }, saveModal)
 corner(modalCancelBtn, 6)
@@ -1042,13 +1072,11 @@ modalSaveBtn.MouseButton1Click:Connect(function()
     if #editorTabs == 0 then return end
     local t = editorTabs[activeEditorTab]
     local name = modalInput.Text
-    if #name == 0 then
-        name = t.name
-    end
+    if #name == 0 then name = t.name end
     local source = codeBox.Text
-    pcall(writefile, "FrostiumAndroid/scripts/" .. name .. ".lua", source)
+    pcall(writefile, "HeliumAndroid/scripts/" .. name .. ".lua", source)
     addSavedScript(name, source, true)
-    Notify("Frostium", "Saved to scripts", 2)
+    Notify("Helium", "Saved to scripts", 2)
     saveModal.Visible = false
     modalInput.Text = ""
 end)
@@ -1058,17 +1086,22 @@ saveBtnInner.MouseButton1Click:Connect(function()
 end)
 
 makeHeading(scriptsTab, "Cloud Scripts")
+
+local currentProvider = "Scriptblox"
+local rscriptsKeyBox
+local resultsList
+
 local providerBtn = create("TextButton", {
-    BackgroundColor3 = Color3.fromRGB(30, 45, 65),
+    BackgroundColor3 = Color3.fromRGB(40, 40, 55),
     Size = UDim2.new(0, 120, 0, 28),
     Position = UDim2.new(0, 10, 0, 42),
     Text = "Scriptblox",
     Font = Enum.Font.GothamBold,
     TextSize = 12,
-    TextColor3 = Color3.fromRGB(220, 235, 255)
+    TextColor3 = Color3.fromRGB(220, 215, 245)
 }, scriptsTab)
 corner(providerBtn, 8)
-stroke(providerBtn, Color3.fromRGB(70, 120, 190), 1, 0.5)
+stroke(providerBtn, Color3.fromRGB(100, 70, 180), 1, 0.5)
 
 local providerArrow = create("ImageLabel", {
     BackgroundTransparency = 1,
@@ -1079,7 +1112,7 @@ local providerArrow = create("ImageLabel", {
 }, providerBtn)
 
 local providerMenu = create("Frame", {
-    BackgroundColor3 = Color3.fromRGB(18, 26, 40),
+    BackgroundColor3 = Color3.fromRGB(28, 28, 36),
     Size = UDim2.new(0, 120, 0, 56),
     Position = UDim2.new(0, 10, 0, 74),
     Visible = false,
@@ -1087,20 +1120,17 @@ local providerMenu = create("Frame", {
     ZIndex = 10
 }, scriptsTab)
 corner(providerMenu, 8)
-stroke(providerMenu, Color3.fromRGB(70, 120, 190), 1, 0.5)
-
-local currentProvider = "Scriptblox"
-local rscriptsKeyBox
+stroke(providerMenu, Color3.fromRGB(100, 70, 180), 1, 0.5)
 
 local function makeProviderOption(text, yPos, value)
     local btn = create("TextButton", {
-        BackgroundColor3 = Color3.fromRGB(24, 36, 52),
+        BackgroundColor3 = Color3.fromRGB(35, 35, 48),
         Size = UDim2.new(1, 0, 0, 26),
         Position = UDim2.new(0, 0, yPos, 0),
         Text = text,
         Font = Enum.Font.Gotham,
         TextSize = 12,
-        TextColor3 = Color3.fromRGB(220, 235, 255),
+        TextColor3 = Color3.fromRGB(220, 215, 245),
         AutoButtonColor = true,
         ZIndex = 11
     }, providerMenu)
@@ -1109,15 +1139,18 @@ local function makeProviderOption(text, yPos, value)
         providerBtn.Text = value
         providerMenu.Visible = false
         providerArrow.Image = "rbxassetid://92993587446526"
-        rscriptsKeyBox.Visible = (value == "RScripts")
-        
-        if value == "RScripts" then
-            rscriptsKeyBox.Position = UDim2.new(0, 10, 0, 78)
-            resultsList.Position = UDim2.new(0, 10, 0, 115)
-            resultsList.Size = UDim2.new(1, -20, 1, -145)
-        else
-            resultsList.Position = UDim2.new(0, 10, 0, 80)
-            resultsList.Size = UDim2.new(1, -20, 1, -110)
+        if rscriptsKeyBox then
+            rscriptsKeyBox.Visible = (value == "RScripts")
+        end
+        if resultsList then
+            if value == "RScripts" then
+                if rscriptsKeyBox then rscriptsKeyBox.Position = UDim2.new(0, 10, 0, 78) end
+                resultsList.Position = UDim2.new(0, 10, 0, 115)
+                resultsList.Size = UDim2.new(1, -20, 1, -145)
+            else
+                resultsList.Position = UDim2.new(0, 10, 0, 80)
+                resultsList.Size = UDim2.new(1, -20, 1, -110)
+            end
         end
     end)
 end
@@ -1131,14 +1164,14 @@ providerBtn.MouseButton1Click:Connect(function()
 end)
 
 rscriptsKeyBox = create("TextBox", {
-    BackgroundColor3 = Color3.fromRGB(16, 24, 36),
+    BackgroundColor3 = Color3.fromRGB(24, 24, 32),
     BackgroundTransparency = 0.1,
     Size = UDim2.new(1, -20, 0, 26),
     Position = UDim2.new(0, 10, 0, 78),
     PlaceholderText = "RScripts API key",
-    PlaceholderColor3 = Color3.fromRGB(140, 170, 210),
+    PlaceholderColor3 = Color3.fromRGB(140, 130, 180),
     Text = "",
-    TextColor3 = Color3.fromRGB(230, 240, 255),
+    TextColor3 = Color3.fromRGB(235, 230, 255),
     Font = Enum.Font.Gotham,
     TextSize = 12,
     TextXAlignment = Enum.TextXAlignment.Left,
@@ -1146,29 +1179,29 @@ rscriptsKeyBox = create("TextBox", {
     Visible = false
 }, scriptsTab)
 corner(rscriptsKeyBox, 8)
-stroke(rscriptsKeyBox, Color3.fromRGB(70, 120, 190), 1, 0.6)
+stroke(rscriptsKeyBox, Color3.fromRGB(100, 70, 180), 1, 0.6)
 create("UIPadding", {PaddingLeft = UDim.new(0, 8)}, rscriptsKeyBox)
 
 local searchBox = create("TextBox", {
-    BackgroundColor3 = Color3.fromRGB(16, 24, 36),
+    BackgroundColor3 = Color3.fromRGB(24, 24, 32),
     BackgroundTransparency = 0.1,
     Size = UDim2.new(1, -240, 0, 26),
     Position = UDim2.new(0, 140, 0, 43),
     PlaceholderText = "Search scripts...",
-    PlaceholderColor3 = Color3.fromRGB(140, 170, 210),
+    PlaceholderColor3 = Color3.fromRGB(140, 130, 180),
     Text = "",
-    TextColor3 = Color3.fromRGB(230, 240, 255),
+    TextColor3 = Color3.fromRGB(235, 230, 255),
     Font = Enum.Font.Gotham,
     TextSize = 13,
     TextXAlignment = Enum.TextXAlignment.Left,
     ClearTextOnFocus = false
 }, scriptsTab)
 corner(searchBox, 8)
-stroke(searchBox, Color3.fromRGB(70, 120, 190), 1, 0.6)
+stroke(searchBox, Color3.fromRGB(100, 70, 180), 1, 0.6)
 create("UIPadding", {PaddingLeft = UDim.new(0, 8)}, searchBox)
 
 local searchBtn = create("TextButton", {
-    BackgroundColor3 = Color3.fromRGB(80, 145, 235),
+    BackgroundColor3 = Color3.fromRGB(130, 90, 230),
     Size = UDim2.new(0, 80, 0, 26),
     Position = UDim2.new(1, -90, 0, 43),
     Text = "Search",
@@ -1179,14 +1212,14 @@ local searchBtn = create("TextButton", {
 corner(searchBtn, 8)
 gradient(searchBtn)
 
-local resultsList = create("ScrollingFrame", {
+resultsList = create("ScrollingFrame", {
     BackgroundTransparency = 1,
     Size = UDim2.new(1, -20, 1, -110),
     Position = UDim2.new(0, 10, 0, 80),
     CanvasSize = UDim2.new(0, 0, 0, 0),
     AutomaticCanvasSize = Enum.AutomaticSize.Y,
     ScrollBarThickness = 4,
-    ScrollBarImageColor3 = FROST_HIGHLIGHT
+    ScrollBarImageColor3 = FLUX_HIGHLIGHT
 }, scriptsTab)
 create("UIListLayout", {SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8)}, resultsList)
 create("UIPadding", {PaddingRight = UDim.new(0, 6), PaddingBottom = UDim.new(0, 10)}, resultsList)
@@ -1202,13 +1235,13 @@ end
 local function makeResultCard(title, author, image, source)
     local card = create("Frame", {
         Name = "ResultCard",
-        BackgroundColor3 = Color3.fromRGB(20, 30, 46),
+        BackgroundColor3 = Color3.fromRGB(32, 32, 42),
         BackgroundTransparency = 0.05,
         Size = UDim2.new(1, -10, 0, 88),
         ClipsDescendants = true
     }, resultsList)
     corner(card, 10)
-    stroke(card, Color3.fromRGB(90, 150, 225), 1, 0.5)
+    stroke(card, Color3.fromRGB(120, 80, 220), 1, 0.5)
     gradient(card)
 
     local img = create("ImageLabel", {
@@ -1226,7 +1259,7 @@ local function makeResultCard(title, author, image, source)
         TextXAlignment = Enum.TextXAlignment.Left,
         Font = Enum.Font.GothamBold,
         TextSize = 13,
-        TextColor3 = Color3.fromRGB(235, 245, 255),
+        TextColor3 = Color3.fromRGB(240, 235, 255),
         Size = UDim2.new(1, -96, 0, 18),
         Position = UDim2.new(0, 88, 0, 12),
         TextTruncate = Enum.TextTruncate.AtEnd
@@ -1238,7 +1271,7 @@ local function makeResultCard(title, author, image, source)
         TextXAlignment = Enum.TextXAlignment.Left,
         Font = Enum.Font.Gotham,
         TextSize = 11,
-        TextColor3 = Color3.fromRGB(160, 190, 225),
+        TextColor3 = Color3.fromRGB(180, 160, 220),
         Size = UDim2.new(1, -96, 0, 14),
         Position = UDim2.new(0, 88, 0, 32),
         TextTruncate = Enum.TextTruncate.AtEnd
@@ -1254,7 +1287,7 @@ local function makeResultCard(title, author, image, source)
 
     local function resultBtn(text, width, callback)
         local f = create("Frame", {
-            BackgroundColor3 = Color3.fromRGB(80, 145, 235),
+            BackgroundColor3 = Color3.fromRGB(130, 90, 230),
             Size = UDim2.new(0, width, 0, 22),
             ClipsDescendants = true
         }, actions)
@@ -1273,18 +1306,18 @@ local function makeResultCard(title, author, image, source)
 
     resultBtn("Execute", 60, function()
         local ok, err = pcall(function() loadstring(source)() end)
-        Notify("Frostium", ok and "Executed!" or ("Error: " .. tostring(err)), 2)
+        Notify("Helium", ok and "Executed!" or ("Error: " .. tostring(err)), 2)
     end)
     resultBtn("Load", 74, function()
         if loadIntoEditor then
             loadIntoEditor(title, source)
             switchTab("Editor")
-            Notify("Frostium", "Loaded into editor", 2)
+            Notify("Helium", "Loaded into editor", 2)
         end
     end)
     resultBtn("Copy", 54, function()
         pcall(setclipboard, source)
-        Notify("Frostium", "Copied", 2)
+        Notify("Helium", "Copied", 2)
     end)
 end
 
@@ -1297,12 +1330,12 @@ end
 
 local function searchScriptblox(query)
     local ok, response = pcall(function()
-        return game:HttpGetAsync("https://scriptblox.com/api/script/search?q=" .. HttpService:UrlEncode(query) .. "&max=20")
+        return httpGet("https://scriptblox.com/api/script/search?q=" .. HttpService:UrlEncode(query) .. "&max=20")
     end)
-    if not ok then Notify("Frostium", "Scriptblox request failed", 2); return end
+    if not ok then Notify("Helium", "Scriptblox request failed", 2); return end
     local decodeOk, decoded = pcall(function() return HttpService:JSONDecode(response) end)
     if not decodeOk or not decoded or not decoded.result or not decoded.result.scripts then
-        Notify("Frostium", "No Scriptblox results", 2); return
+        Notify("Helium", "No Scriptblox results", 2); return
     end
     for _, s in ipairs(decoded.result.scripts) do
         local img = s.isUniversal and "rbxassetid://128637488250626" or (s.game and s.game.imageUrl) or "rbxassetid://128637488250626"
@@ -1311,14 +1344,17 @@ local function searchScriptblox(query)
 end
 
 local function searchRScripts(query, key)
-    if not key or #key < 10 then Notify("Frostium", "RScripts API key required", 3); return end
+    if not key or #key < 10 then
+        Notify("Helium", "RScripts API key required", 3)
+        return
+    end
     local ok, response = pcall(function()
-        return game:HttpGetAsync("https://api.rscripts.net/v1/search?q=" .. HttpService:UrlEncode(query) .. "&index=scripts&limit=20", true, {["Authorization"] = "Bearer " .. key})
+        return httpGet("https://api.rscripts.net/v1/search?q=" .. HttpService:UrlEncode(query) .. "&index=scripts&limit=20", {["Authorization"] = "Bearer " .. key})
     end)
-    if not ok then Notify("Frostium", "RScripts request failed", 2); return end
+    if not ok then Notify("Helium", "RScripts request failed", 2); return end
     local decodeOk, decoded = pcall(function() return HttpService:JSONDecode(response) end)
     if not decodeOk or not decoded or not decoded.success or not decoded.data then
-        Notify("Frostium", "No RScripts results", 2); return
+        Notify("Helium", "No RScripts results", 2); return
     end
     local scripts = decoded.data.scripts or decoded.data
     if type(scripts) ~= "table" then return end
@@ -1327,9 +1363,9 @@ local function searchRScripts(query, key)
         local src = s.script or s.rawScript or ""
         if #src == 0 and s.slug then
             local rawOk, raw = pcall(function()
-                return game:HttpGet("https://api.rscripts.net/v1/scripts/" .. s.slug, true, {["Authorization"] = "Bearer " .. key})
+                return httpGet("https://api.rscripts.net/v1/scripts/" .. s.slug, {["Authorization"] = "Bearer " .. key})
             end)
-            if rawOk then
+            if rawOk and raw then
                 local rawDecoded = HttpService:JSONDecode(raw)
                 src = rawDecoded.data and rawDecoded.data.script or ""
             end
@@ -1341,9 +1377,9 @@ end
 searchBtn.MouseButton1Click:Connect(function()
     clearResults()
     local q = searchBox.Text
-    if #q < 1 then 
+    if #q < 1 then
         loadDefaultScripts()
-        return 
+        return
     end
     if currentProvider == "Scriptblox" then
         searchScriptblox(q)
@@ -1360,7 +1396,7 @@ local settingsScroll = create("ScrollingFrame", {
     CanvasSize = UDim2.new(0, 0, 0, 0),
     AutomaticCanvasSize = Enum.AutomaticSize.Y,
     ScrollBarThickness = 4,
-    ScrollBarImageColor3 = FROST_HIGHLIGHT
+    ScrollBarImageColor3 = FLUX_HIGHLIGHT
 }, settingsTab)
 create("UIListLayout", {SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 6)}, settingsScroll)
 create("UIPadding", {PaddingRight = UDim.new(0, 6), PaddingBottom = UDim.new(0, 10)}, settingsScroll)
@@ -1369,13 +1405,13 @@ makeSection(settingsScroll, "Main Settings")
 
 local function makeSettingRow(parent, label, icon, callback, isReset, resetCallback, hasInput)
     local row = create("Frame", {
-        BackgroundColor3 = Color3.fromRGB(20, 30, 46),
+        BackgroundColor3 = Color3.fromRGB(32, 32, 42),
         BackgroundTransparency = 0.05,
         Size = UDim2.new(1, -6, 0, 40),
         ClipsDescendants = true
     }, parent)
     corner(row, 8)
-    stroke(row, Color3.fromRGB(70, 120, 190), 1, 0.5)
+    stroke(row, Color3.fromRGB(100, 70, 180), 1, 0.5)
 
     if icon then
         create("ImageLabel", {
@@ -1393,7 +1429,7 @@ local function makeSettingRow(parent, label, icon, callback, isReset, resetCallb
         TextXAlignment = Enum.TextXAlignment.Left,
         Font = Enum.Font.Gotham,
         TextSize = 12,
-        TextColor3 = Color3.fromRGB(220, 235, 255),
+        TextColor3 = Color3.fromRGB(220, 215, 245),
         Size = UDim2.new(0.35, 0, 1, 0),
         Position = UDim2.new(0, 36, 0, 0),
         TextTruncate = Enum.TextTruncate.AtEnd
@@ -1401,7 +1437,7 @@ local function makeSettingRow(parent, label, icon, callback, isReset, resetCallb
 
     if hasInput == false then
         local clickBtn = create("TextButton", {
-            BackgroundColor3 = Color3.fromRGB(80, 145, 235),
+            BackgroundColor3 = Color3.fromRGB(130, 90, 230),
             Size = UDim2.new(0, 70, 0, 24),
             Position = UDim2.new(1, -80, 0.5, -12),
             Text = "Click",
@@ -1416,22 +1452,22 @@ local function makeSettingRow(parent, label, icon, callback, isReset, resetCallb
         end)
     else
         local input = create("TextBox", {
-            BackgroundColor3 = Color3.fromRGB(16, 24, 36),
+            BackgroundColor3 = Color3.fromRGB(24, 24, 32),
             Size = UDim2.new(0, 60, 0, 24),
             Position = UDim2.new(1, -146, 0.5, -12),
             Text = "",
             PlaceholderText = "...",
-            PlaceholderColor3 = Color3.fromRGB(140, 170, 210),
+            PlaceholderColor3 = Color3.fromRGB(140, 130, 180),
             Font = Enum.Font.Gotham,
             TextSize = 12,
-            TextColor3 = Color3.fromRGB(230, 240, 255),
+            TextColor3 = Color3.fromRGB(235, 230, 255),
             ClearTextOnFocus = false
         }, row)
         corner(input, 6)
-        stroke(input, Color3.fromRGB(70, 120, 190), 1, 0.6)
+        stroke(input, Color3.fromRGB(100, 70, 180), 1, 0.6)
 
         local setBtn = create("TextButton", {
-            BackgroundColor3 = Color3.fromRGB(80, 145, 235),
+            BackgroundColor3 = Color3.fromRGB(130, 90, 230),
             Size = UDim2.new(0, 46, 0, 24),
             Position = UDim2.new(1, -80, 0.5, -12),
             Text = "Set",
@@ -1450,13 +1486,13 @@ local function makeSettingRow(parent, label, icon, callback, isReset, resetCallb
             input.Position = UDim2.new(1, -206, 0.5, -12)
             setBtn.Position = UDim2.new(1, -138, 0.5, -12)
             local resetBtn = create("TextButton", {
-                BackgroundColor3 = Color3.fromRGB(40, 60, 90),
+                BackgroundColor3 = Color3.fromRGB(50, 50, 70),
                 Size = UDim2.new(0, 50, 0, 24),
                 Position = UDim2.new(1, -80, 0.5, -12),
                 Text = "Reset",
                 Font = Enum.Font.GothamBold,
                 TextSize = 11,
-                TextColor3 = Color3.fromRGB(230, 240, 255)
+                TextColor3 = Color3.fromRGB(230, 225, 250)
             }, row)
             corner(resetBtn, 6)
             resetBtn.MouseButton1Click:Connect(resetCallback)
@@ -1488,27 +1524,134 @@ end, true)
 
 makeSettingRow(settingsScroll, "Copy Discord Invite", "rbxassetid://71038734318580", function()
     pcall(setclipboard, "https://discord.gg/au8CpZBCXg")
-    Notify("Frostium", "Discord invite copied", 2)
+    Notify("Helium", "Discord invite copied", 2)
 end, false, nil, false)
 
 makeSettingRow(settingsScroll, "Show Credits", "rbxassetid://125161627986415", function()
-    Notify("Frostium", "Made by Frostium Team", 4)
+    Notify("Helium", "Made by Fluxboyz Team", 4)
 end, false, nil, false)
 
 makeSettingRow(settingsScroll, "Unlock FPS", "rbxassetid://128063016456306", function()
     pcall(setfpscap, 0)
-    Notify("Frostium", "FPS unlocked", 2)
+    Notify("Helium", "FPS unlocked", 2)
 end, false, nil, false)
 
 makeSettingRow(settingsScroll, "Open Console", "rbxassetid://71466343335951", function()
     local success = pcall(function()
         game:GetService("StarterGui"):SetCore("DevConsoleVisible", true)
     end)
-
     if success then
-        Notify("Frostium", "Console opened!", 2)
+        Notify("Helium", "Console opened!", 2)
     else
-        Notify("Frostium", "Unable to open console!", 2)
+        Notify("Helium", "Unable to open console!", 2)
+    end
+end, false, nil, false)
+
+makeSection(settingsScroll, "Server Configuration")
+
+makeSettingRow(settingsScroll, "Rejoin Server", "rbxassetid://129337684713976", function()
+    local success = pcall(function()
+        game:GetService("TeleportService"):Teleport(game.PlaceId, game:GetService("Players").LocalPlayer)
+    end)
+    if success then
+        Notify("Helium", "Rejoining...", 2)
+    else
+        Notify("Helium", "Unable to rejoin server!", 2)
+    end
+end, false, nil, false)
+
+makeSettingRow(settingsScroll, "Serverhop Small Server", "rbxassetid://129337684713976", function()
+    local success = pcall(function()
+        local API = "https://games.roblox.com/v1/games/"
+        local _place = game.PlaceId
+        local _servers = API .. _place .. "/servers/Public?sortOrder=Asc&limit=100"
+        local function ListServers(cursor)
+            local Raw = game:HttpGetAsync(_servers .. ((cursor and "&cursor=" .. cursor) or ""))
+            return HttpService:JSONDecode(Raw)
+        end
+        local Server, Next
+        repeat local Servers = ListServers(Next) Server = Servers.data[1] Next = Servers.nextPageCursor until Server
+        TeleportService:TeleportToPlaceInstance(_place, Server.id, game:GetService("Players").LocalPlayer)
+    end)
+    if success then
+        Notify("Helium", "Serverhopping...", 2)
+    else
+        Notify("Helium", "Unable to serverhop on small server!", 2)
+    end
+end, false, nil, false)
+
+makeSettingRow(settingsScroll, "Serverhop", "rbxassetid://129337684713976", function()
+    local success = pcall(function()
+        local PlaceID = game.PlaceId
+        local AllIDs = {}
+        local foundAnything = ""
+        local actualHour = os.date("!*t").hour
+        local File = pcall(function()
+            AllIDs = game:GetService('HttpService'):JSONDecode(readinternal("NotSameServers.json"))
+        end)
+        if not File then
+            table.insert(AllIDs, actualHour)
+            writeinternal("NotSameServers.json", game:GetService('HttpService'):JSONEncode(AllIDs))
+        end
+        function TPReturner()
+            local Site
+            if foundAnything == "" then
+                Site = game.HttpService:JSONDecode(game:HttpGetAsync('https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=Asc&limit=100'))
+            else
+                Site = game.HttpService:JSONDecode(game:HttpGetAsync('https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=Asc&limit=100&cursor=' .. foundAnything))
+            end
+            local ID = ""
+            if Site.nextPageCursor and Site.nextPageCursor ~= "null" and Site.nextPageCursor ~= nil then
+                foundAnything = Site.nextPageCursor
+            end
+            local num = 0
+            for i, v in pairs(Site.data) do
+                local Possible = true
+                ID = tostring(v.id)
+                if tonumber(v.maxPlayers) > tonumber(v.playing) then
+                    for _, Existing in pairs(AllIDs) do
+                        if num ~= 0 then
+                            if ID == tostring(Existing) then
+                                Possible = false
+                            end
+                        else
+                            if tonumber(actualHour) ~= tonumber(Existing) then
+                                pcall(function()
+                                    delinternal("NotSameServers.json")
+                                    AllIDs = {}
+                                    table.insert(AllIDs, actualHour)
+                                end)
+                            end
+                        end
+                        num = num + 1
+                    end
+                    if Possible == true then
+                        table.insert(AllIDs, ID)
+                        task.wait()
+                        pcall(function()
+                            writeinternal("NotSameServers.json", game:GetService('HttpService'):JSONEncode(AllIDs))
+                            task.wait()
+                            game:GetService("TeleportService"):TeleportToPlaceInstance(PlaceID, ID, game:GetService("Players").LocalPlayer)
+                        end)
+                        task.wait(4)
+                    end
+                end
+            end
+        end
+        function Teleport()
+            while task.wait() do
+                pcall(function()
+                    TPReturner()
+                    if foundAnything ~= "" then TPReturner() end
+                end)
+            end
+        end
+        Teleport()
+    end)
+    if success then
+        Notify("Helium", "Serverhopping...", 2)
+    else
+        Notify("Helium", "Unable to serverhop!", 2)
     end
 end, false, nil, false)
 
@@ -1516,20 +1659,20 @@ makeSection(settingsScroll, "Information")
 
 local function makeInfoRow(parent, label, valueGetter)
     local row = create("Frame", {
-        BackgroundColor3 = Color3.fromRGB(20, 30, 46),
+        BackgroundColor3 = Color3.fromRGB(32, 32, 42),
         BackgroundTransparency = 0.05,
         Size = UDim2.new(1, -6, 0, 30),
         ClipsDescendants = true
     }, parent)
     corner(row, 8)
-    stroke(row, Color3.fromRGB(70, 120, 190), 1, 0.5)
+    stroke(row, Color3.fromRGB(100, 70, 180), 1, 0.5)
     create("TextLabel", {
         BackgroundTransparency = 1,
         Text = label,
         TextXAlignment = Enum.TextXAlignment.Left,
         Font = Enum.Font.Gotham,
         TextSize = 12,
-        TextColor3 = Color3.fromRGB(190, 215, 245),
+        TextColor3 = Color3.fromRGB(190, 180, 230),
         Size = UDim2.new(0.55, 0, 1, 0),
         Position = UDim2.new(0, 10, 0, 0),
         TextTruncate = Enum.TextTruncate.AtEnd
@@ -1540,7 +1683,7 @@ local function makeInfoRow(parent, label, valueGetter)
         TextXAlignment = Enum.TextXAlignment.Right,
         Font = Enum.Font.GothamBold,
         TextSize = 12,
-        TextColor3 = Color3.fromRGB(235, 245, 255),
+        TextColor3 = Color3.fromRGB(240, 235, 255),
         Size = UDim2.new(0.4, 0, 1, 0),
         Position = UDim2.new(0.57, 0, 0, 0),
         TextTruncate = Enum.TextTruncate.AtEnd
@@ -1556,18 +1699,18 @@ end
 
 local fpsCounter = 0
 local fpsTimer = 0
-_G.frostiumFPS = 0
+_G.heliumFPS = 0
 RunService.RenderStepped:Connect(function(dt)
     fpsCounter = fpsCounter + 1
     fpsTimer = fpsTimer + dt
     if fpsTimer >= 1 then
-        _G.frostiumFPS = math.floor(fpsCounter / fpsTimer)
+        _G.heliumFPS = math.floor(fpsCounter / fpsTimer)
         fpsCounter = 0
         fpsTimer = 0
     end
 end)
 
-makeInfoRow(settingsScroll, "Current FPS", function() return _G.frostiumFPS or 0 end)
+makeInfoRow(settingsScroll, "Current FPS", function() return _G.heliumFPS or 0 end)
 makeInfoRow(settingsScroll, "Current Ping", function()
     local ok, ping = pcall(function() return Stats.Network.ServerStatsItem["Data Ping"]:GetValue() end)
     return ok and (math.floor(ping) .. " ms") or "???"
@@ -1586,10 +1729,13 @@ task.spawn(function()
     welcome.Text = "Welcome, " .. (LocalPlayer.DisplayName or LocalPlayer.Name) .. "!"
 end)
 
-workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
-    uiScale.Scale = scaleForDevice()
-end)
+if workspace.CurrentCamera then
+    workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+        uiScale.Scale = scaleForDevice()
+    end)
+end
 
 loadDefaultScripts()
 switchTab("Home")
 mainFrame.Visible = true
+_G.is_helium_loaded = true
